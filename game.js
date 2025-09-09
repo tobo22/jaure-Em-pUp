@@ -1,34 +1,79 @@
+// Estados y variables globales
+let gameState = "menu"; // menu, keybinds, game, paused, dead, gameover
+let player = { x: 0, y: 0, w: 80, h: 80, speed: 5 }; // Jugador 80x80
+let bullets = [];
+let enemies = [];
+let kills = 0;
+let lives = 3;
+let ammo = 10;
+let powerUps = [];
+let activePower = null;
+let powerTimeout = null;
+let powerHandled = false;
+let hasCollidedWithPowerUp = false;
+let colorChangeTimeout = null;
+let playerColor = "yellow"; // yellow, red, green, sad
+let flashTimeout = null;
+let flashColor = null; // "red" o "brown"
+let keys = {};
+let defaultKeys = { left: "ArrowLeft", right: "ArrowRight", shoot: " " };
+let keyBindings = JSON.parse(localStorage.getItem("keyBindings")) || defaultKeys;
+let highScore = parseInt(localStorage.getItem("highScore")) || 0;
+let difficulty = localStorage.getItem("difficulty") || "easy"; // Por defecto: fácil
+let deathTimeout = null; // Temporizador para el estado dead
+
+// Canvas
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Ajustar canvas responsive en móvil
-function resizeCanvas() {
-  if (window.innerWidth <= 768) {
-    canvas.width = Math.min(window.innerWidth, 600);
-    canvas.height = window.innerHeight - (window.matchMedia("(orientation: landscape)").matches ? 80 : 100);
-    player.y = canvas.height - 60;
-    player.x = Math.min(player.x, canvas.width - player.w); // Asegurar que el jugador no salga del canvas
-  } else {
-    canvas.width = 600;
-    canvas.height = 600;
-  }
+// Precarga de imágenes
+const images = {
+  background_easy: new Image(),
+  background_medium: new Image(),
+  background_hard: new Image(),
+  player_yellow: new Image(),
+  player_red: new Image(),
+  player_green: new Image(),
+  player_sad: new Image(),
+  enemy_red: new Image(),
+  enemy_blue: new Image(),
+  enemy_purple: new Image(),
+  enemy_brown: new Image(),
+  powerup: new Image(),
+  bullet: new Image()
+};
+images.background_easy.src = 'easy.png';
+images.background_medium.src = 'inter.png';
+images.background_hard.src = 'hard.png';
+images.player_yellow.src = 'bauti pelotudo.png';
+images.player_red.src = 'bauti enojado.png';
+images.player_green.src = 'bauti feliz.png';
+images.player_sad.src = 'bauti triste.png';
+images.enemy_red.src = 'ratata.png';
+images.enemy_blue.src = 'raticate.png';
+images.enemy_purple.src = 'reigenoseque (violeta).png';
+images.enemy_brown.src = 'orgullo peruano.png';
+images.powerup.src = 'dito(green).png';
+images.bullet.src = 'pokebola.png';
+
+// Asegurar que todas las imágenes estén cargadas o fallen antes de empezar
+let imagesLoaded = 0;
+const totalImages = Object.keys(images).length;
+for (let key in images) {
+  images[key].onload = () => {
+    imagesLoaded++;
+    if (imagesLoaded === totalImages) {
+      loop(); // Iniciar el juego cuando todas las imágenes estén cargadas
+    }
+  };
+  images[key].onerror = () => {
+    console.error(`Error cargando imagen: ${images[key].src}`);
+    imagesLoaded++; // Contar como cargada aunque falle
+    if (imagesLoaded === totalImages) {
+      loop(); // Iniciar el juego
+    }
+  };
 }
-window.addEventListener('resize', resizeCanvas);
-window.addEventListener('orientationchange', resizeCanvas);
-resizeCanvas();
-
-// Estados
-let gameState = "menu"; // menu, keybinds, game, paused, gameover
-
-// Persistencia de teclas
-let defaultKeys = { left: "ArrowLeft", right: "ArrowRight", shoot: " " };
-let keyBindings = JSON.parse(localStorage.getItem("keyBindings")) || defaultKeys;
-
-// Persistencia de record de kills
-let highScore = parseInt(localStorage.getItem("highScore")) || 0;
-
-// Persistencia de dificultad
-let difficulty = localStorage.getItem("difficulty") || "easy"; // Por defecto: fácil
 
 // Nombres de los niveles
 const levelNames = {
@@ -59,30 +104,26 @@ const enemyStats = {
   }
 };
 
-// Jugador
-let player = { x: canvas.width/2 - 15, y: canvas.height - 60, w: 30, h: 30, speed: 5 };
-
-// Stats
-let bullets = [];
-let enemies = [];
-let kills = 0;
-let lives = 3;
-let ammo = 10;
-
-// Power-ups
-let powerUps = [];
-let activePower = null, powerTimeout = null, powerHandled = false;
-let hasCollidedWithPowerUp = false; // Nuevo flag para rastrear colisión
-
-// Color change for power-up
-let colorChangeTimeout = null;
-let playerColor = "yellow"; // Color por defecto
-
-// Efecto de fondo rojo
-let flashTimeout = null;
+// Ajustar canvas responsive en móvil
+function resizeCanvas() {
+  if (window.innerWidth <= 768) {
+    canvas.width = Math.min(window.innerWidth, 800);
+    canvas.height = window.innerHeight - (window.matchMedia("(orientation: landscape)").matches ? 80 : 100);
+    player.y = canvas.height - 120; // Ajustado para h = 80
+    player.x = Math.min(player.x, canvas.width - player.w); // Asegurar que no salga del canvas
+  } else {
+    canvas.width = 800;
+    canvas.height = 800;
+  }
+  // Inicializar posición del jugador
+  player.x = canvas.width / 2 - 40; // Ajustado para w = 80
+  player.y = canvas.height - 120; // Ajustado para h = 80
+}
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', resizeCanvas);
+resizeCanvas();
 
 // Input
-let keys = {};
 document.addEventListener("keydown", e => {
   keys[e.key] = true;
   if (gameState === "game" && e.key === "Escape") {
@@ -130,14 +171,7 @@ powerUpBtn.addEventListener("touchstart", () => {
   // Activar efecto de fondo rojo si se perdió vida
   if (lives < prevLives && !flashTimeout) {
     flashTimeout = Date.now() + 1000;
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
-    gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
-    canvas.style.background = gradient;
-    setTimeout(() => {
-      canvas.style.background = "black";
-      flashTimeout = null;
-    }, 1000);
+    flashColor = "red";
   }
   powerUps = [];
   activePower = null;
@@ -252,14 +286,15 @@ function showPauseMenu() {
 }
 
 function showGameOverMenu() {
+  gameState = "gameover";
   gameOverMenu.style.display = 'block';
   document.getElementById("finalStats").textContent = `Vidas: ${lives} | Balas: ${ammo} | Kills: ${kills}`;
 }
 
 // --- RESET ---
 function resetGame() {
-  player.x = canvas.width/2 - 15;
-  player.y = canvas.height - 60;
+  player.x = canvas.width / 2 - 40; // Ajustado para w = 80
+  player.y = canvas.height - 120; // Ajustado para h = 80
   bullets = [];
   enemies = [];
   powerUps = [];
@@ -273,14 +308,15 @@ function resetGame() {
   colorChangeTimeout = null;
   playerColor = "yellow";
   flashTimeout = null;
-  canvas.style.background = "black"; // Restaurar fondo
-  powerUpBtn.style.display = "none"; // Ocultar botón de power-up al resetear
+  flashColor = null;
+  deathTimeout = null; // Resetear temporizador de muerte
+  powerUpBtn.style.display = "none";
 }
 
 // --- DISPARAR ---
 function shoot() {
   if (ammo > 0) {
-    bullets.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10, speed: 7 });
+    bullets.push({ x: player.x + player.w / 2 - 8, y: player.y, w: 16, h: 16, speed: 7 }); // Balas 16x16
     ammo--;
   }
 }
@@ -291,32 +327,24 @@ function spawnEnemy() {
 
   let type = kills >= 50 ? "blue" : "red";
   if (kills >= 10 && kills < 50 && Math.random() < 0.3) type = "blue";
-
-  // Generar enemigo violeta después de 50 kills
-  if (kills >= 50 && Math.random() < 0.1) {
-    type = "purple";
-  }
-
-  // Generar enemigo marrón (Juan) en 22 kills
-  if (kills === 22 && Math.random() < 0.02) {
-    type = "brown";
-  }
+  if (kills >= 50 && Math.random() < 0.1) type = "purple";
+  if (kills === 22 && Math.random() < 0.02) type = "brown";
 
   const stats = enemyStats[difficulty][type];
   enemies.push({
-    x: Math.random()*(canvas.width-30),
-    y: -30,
-    w: 30,
-    h: 30,
+    x: Math.random() * (canvas.width - 60), // Ajustado para w = 60
+    y: -60, // Ajustado para h = 60
+    w: 60, // Enemigos 60x60
+    h: 60,
     speed: type === "purple" ? 1 : 2,
     type,
     hp: stats.hp,
-    maxHp: stats.hp, // Guardar HP inicial para la barra de vida
+    maxHp: stats.hp,
     livesLost: stats.livesLost,
     livesGained: stats.livesGained,
     ammoReward: stats.ammoReward,
-    direction: type === "purple" ? 1 : 0, // Para movimiento lateral
-    sideSpeed: type === "purple" ? 1 : 0 // Velocidad lateral lenta
+    direction: type === "purple" ? 1 : 0,
+    sideSpeed: type === "purple" ? 1 : 0
   });
 }
 setInterval(spawnEnemy, 1500);
@@ -324,83 +352,66 @@ setInterval(spawnEnemy, 1500);
 // --- SPAWN POWER-UP ---
 function spawnPowerUp() {
   if (gameState !== "game") return;
-  let x = Math.random()*(canvas.width-30);
-  let y = -30; // Comienza desde la parte superior
-  let randomKey = String.fromCharCode(65 + Math.floor(Math.random()*26));
-  powerUps.push({ x, y, w:30, h:30, key: randomKey, active: true, speed: 2 });
+  let x = Math.random() * (canvas.width - 50); // Ajustado para w = 50
+  let y = -50; // Ajustado para h = 50
+  let randomKey = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  powerUps.push({ x, y, w: 50, h: 50, key: randomKey, active: true, speed: 2 }); // Power-ups 50x50
 }
 setInterval(spawnPowerUp, 10000);
 
 // --- POWER-UPS ---
 function handlePowerUps() {
   powerUps.forEach((p, i) => {
-    // Mover power-up hacia abajo
     p.y += p.speed;
-
-    // colisión jugador
     if (p.active &&
         player.x < p.x + p.w && player.x + player.w > p.x &&
         player.y < p.y + p.h && player.y + player.h > p.y) {
       activePower = p;
       p.active = false;
-      powerTimeout = Date.now() + 1000;
+      powerTimeout = Date.now() + 1500; // 1.5 segundos
       powerHandled = false;
       hasCollidedWithPowerUp = true;
-      if (isMobile) powerUpBtn.style.display = "inline-block"; // Mostrar botón en móvil
+      if (isMobile) powerUpBtn.style.display = "inline-block";
     }
-
-    // expira o sale de la pantalla
     if (!p.active && Date.now() > powerTimeout || p.y >= canvas.height) {
       if (!p.active && !powerHandled && hasCollidedWithPowerUp) {
         const prevLives = lives;
-        lives -= 1; // -1 vida si colisionaste pero no tocaste el botón
-        playerColor = "red"; // Cambiar a rojo si falla
+        lives -= 1;
+        playerColor = "red";
         colorChangeTimeout = Date.now() + 2000;
         if (lives < prevLives && !flashTimeout) {
           flashTimeout = Date.now() + 1000;
-          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-          gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
-          gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
-          canvas.style.background = gradient;
-          setTimeout(() => {
-            canvas.style.background = "black";
-            flashTimeout = null;
-          }, 1000);
+          flashColor = "red";
         }
       }
       powerUps.splice(i, 1);
       activePower = null;
       powerHandled = true;
       hasCollidedWithPowerUp = false;
-      powerUpBtn.style.display = "none"; // Ocultar botón en móvil
+      powerUpBtn.style.display = "none";
     }
   });
 
   if (activePower && !powerHandled && !isMobile) {
     document.onkeydown = (e) => {
+      console.log(`Tecla presionada: ${e.key}, Power-up key: ${activePower.key}`);
       if (gameState !== "game") return;
       const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
-      const prevLives = lives; // Guardar vidas antes del cambio
+      const prevLives = lives;
       if (e.key.toUpperCase() === activePower.key) {
-        ammo = Math.min(ammo + 3, maxAmmo); // +3 balas si acierta
-        playerColor = "green"; // Cambiar a verde si acierta
+        console.log("Power-up acertado!");
+        ammo = Math.min(ammo + 3, maxAmmo);
+        playerColor = "green";
         colorChangeTimeout = Date.now() + 2000;
-      } else if (e.key !== "Escape") { // Ignorar Escape para evitar penalización
-        lives -= 1; // -1 vida si falla
-        playerColor = "red"; // Cambiar a rojo si falla
+      } else if (e.key !== "Escape") {
+        console.log("Power-up fallado!");
+        lives -= 1;
+        playerColor = "red";
         colorChangeTimeout = Date.now() + 2000;
       }
-      // Activar efecto de fondo rojo si se perdió vida
       if (lives < prevLives && !flashTimeout) {
         flashTimeout = Date.now() + 1000;
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
-        gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
-        canvas.style.background = gradient;
-        setTimeout(() => {
-          canvas.style.background = "black";
-          flashTimeout = null;
-        }, 1000);
+        flashColor = "red";
       }
       powerUps = [];
       activePower = null;
@@ -409,78 +420,60 @@ function handlePowerUps() {
     };
   }
 
-  // Si expira el tiempo y no se presionó ninguna tecla, volver a amarillo
   if (activePower && Date.now() > powerTimeout && !powerHandled) {
     if (hasCollidedWithPowerUp) {
+      console.log("Power-up expirado sin acción");
       const prevLives = lives;
-      lives -= 1; // -1 vida si colisionaste pero no tocaste el botón
-      playerColor = "red"; // Cambiar a rojo si falla
+      lives -= 1;
+      playerColor = "red";
       colorChangeTimeout = Date.now() + 2000;
       if (lives < prevLives && !flashTimeout) {
         flashTimeout = Date.now() + 1000;
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
-        gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
-        canvas.style.background = gradient;
-        setTimeout(() => {
-          canvas.style.background = "black";
-          flashTimeout = null;
-        }, 1000);
+        flashColor = "red";
       }
     }
     powerUps = [];
     activePower = null;
     powerHandled = true;
     document.onkeydown = null;
-    powerUpBtn.style.display = "none"; // Ocultar botón en móvil
+    powerUpBtn.style.display = "none";
   }
 }
 
 // --- UPDATE ---
 function updateGame() {
-  // Movimiento jugador
+  if (gameState !== "game") return; // No actualizar en estado dead
+
   if (keys[keyBindings.left] && player.x > 0) player.x -= player.speed;
   if (keys[keyBindings.right] && player.x + player.w < canvas.width) player.x += player.speed;
   if (keys[keyBindings.shoot]) { shoot(); keys[keyBindings.shoot] = false; }
 
-  // Balas
   bullets.forEach(b => b.y -= b.speed);
   bullets = bullets.filter(b => b.y > 0);
 
-  // Enemigos
   enemies.forEach(en => {
     en.y += en.speed;
     if (en.type === "purple") {
       en.x += en.sideSpeed * en.direction;
-      if (en.x <= 0 || en.x + en.w >= canvas.width) en.direction *= -1; // Cambiar dirección al tocar bordes
+      if (en.x <= 0 || en.x + en.w >= canvas.width) en.direction *= -1;
     }
   });
 
-  // Filtrar enemigos que pasan
-  const prevLives = lives; // Guardar vidas antes del cambio
+  const prevLives = lives;
   enemies = enemies.filter(en => {
     if (en.y >= canvas.height) {
       lives = Math.max(0, lives - en.livesLost);
-      if (en.type === "brown") { canvas.style.background = "brown"; gameState = "gameover"; }
+      if (en.type === "brown") { flashColor = "brown"; gameState = "dead"; }
       return false;
     }
     return true;
   });
 
-  // Activar efecto de fondo rojo si se perdió vida
   if (lives < prevLives && !flashTimeout) {
     flashTimeout = Date.now() + 1000;
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
-    gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
-    canvas.style.background = gradient;
-    setTimeout(() => {
-      canvas.style.background = "black";
-      flashTimeout = null;
-    }, 1000);
+    flashColor = "red";
   }
 
-  // colisiones balas-enemigos
   let bulletsToRemove = new Set();
   bullets.forEach((b, bi) => {
     enemies.forEach((en, ei) => {
@@ -498,14 +491,13 @@ function updateGame() {
             highScore = kills;
             localStorage.setItem("highScore", highScore);
           }
-          // Spawn brown (juan) with 2% chance exactly at 22 kills
           if (kills === 22 && Math.random() < 0.02) {
             const stats = enemyStats[difficulty].brown;
             enemies.push({
-              x: Math.random()*(canvas.width-30),
-              y: -30,
-              w: 30,
-              h: 30,
+              x: Math.random() * (canvas.width - 60), // Ajustado para w = 60
+              y: -60, // Ajustado para h = 60
+              w: 60, // Enemigos 60x60
+              h: 60,
               speed: 2,
               type: "brown",
               hp: stats.hp,
@@ -520,21 +512,20 @@ function updateGame() {
     });
   });
 
-  // Eliminar balas después de procesar todas las colisiones
   bullets = bullets.filter((_, bi) => !bulletsToRemove.has(bi));
 
   handlePowerUps();
 
-  // Volver al color por defecto (amarillo) después de que expire el cambio de color
   if (colorChangeTimeout && Date.now() > colorChangeTimeout) {
     playerColor = "yellow";
     colorChangeTimeout = null;
   }
 
   if (lives <= 0) {
-    gameState = "gameover";
-    showGameOverMenu();
-    powerUpBtn.style.display = "none"; // Ocultar botón en game over
+    gameState = "dead";
+    playerColor = "sad"; // Cambiar a bauti triste.png
+    deathTimeout = Date.now() + 2000; // Mostrar por 2 segundos
+    powerUpBtn.style.display = "none";
   }
 }
 
@@ -542,31 +533,59 @@ function updateGame() {
 function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Fondo según dificultad
+  const backgroundImage = images[`background_${difficulty}`];
+  if (backgroundImage && backgroundImage.complete) {
+    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Efecto de tinte (rojo o marrón)
+  if (flashTimeout && Date.now() < flashTimeout) {
+    ctx.fillStyle = flashColor === "red" ? "rgba(255, 0, 0, 0.5)" : "rgba(139, 69, 19, 0.5)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  } else if (flashTimeout && Date.now() >= flashTimeout) {
+    flashTimeout = null;
+    flashColor = null;
+  }
+
   // Jugador
-  ctx.fillStyle = playerColor;
-  ctx.fillRect(player.x, player.y, player.w, player.h);
+  const playerImage = images[`player_${playerColor}`];
+  if (playerImage.complete) {
+    ctx.drawImage(playerImage, player.x, player.y, player.w, player.h); // Usa w: 80, h: 80
+  } else {
+    ctx.fillStyle = playerColor === "sad" ? "blue" : "yellow"; // Azul para bauti triste si falta
+    ctx.fillRect(player.x, player.y, player.w, player.h); // Usa w: 80, h: 80
+  }
 
   // Balas
-  ctx.fillStyle = "white";
-  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
+  bullets.forEach(b => {
+    if (images.bullet.complete) {
+      ctx.drawImage(images.bullet, b.x, b.y, b.w, b.h); // Usa pokebola.png, w: 16, h: 16
+    } else {
+      ctx.fillStyle = "white";
+      ctx.fillRect(b.x, b.y, b.w, b.h); // Placeholder blanco si falta pokebola.png
+    }
+  });
 
   // Enemigos con barras de vida
   enemies.forEach(en => {
-    // Dibujar enemigo
-    if (en.type === "red") ctx.fillStyle = "red";
-    else if (en.type === "blue") ctx.fillStyle = "blue";
-    else if (en.type === "brown") ctx.fillStyle = "brown";
-    else if (en.type === "purple") ctx.fillStyle = "purple";
-    ctx.fillRect(en.x, en.y, en.w, en.h);
+    const enemyImage = images[`enemy_${en.type}`];
+    if (enemyImage.complete) {
+      ctx.drawImage(enemyImage, en.x, en.y, en.w, en.h); // Usa w: 60, h: 60
+    } else {
+      ctx.fillStyle = en.type;
+      ctx.fillRect(en.x, en.y, en.w, en.h); // Usa w: 60, h: 60
+    }
 
-    // Dibujar barra de vida
     if (en.hp > 0) {
       const healthRatio = en.hp / en.maxHp;
-      const barWidth = en.w * healthRatio;
+      const barWidth = en.w * healthRatio; // Ajustado para w = 60
       const barHeight = 5;
       const barX = en.x;
       const barY = en.y - 10;
-      // Color de la barra: verde (1) a rojo (0)
       const red = Math.floor(255 * (1 - healthRatio));
       const green = Math.floor(255 * healthRatio);
       ctx.fillStyle = `rgb(${red}, ${green}, 0)`;
@@ -576,11 +595,15 @@ function drawGame() {
 
   // Power-ups
   powerUps.forEach(p => {
-    ctx.fillStyle = "green";
-    ctx.fillRect(p.x, p.y, p.w, p.h);
+    if (images.powerup.complete) {
+      ctx.drawImage(images.powerup, p.x, p.y, p.w, p.h); // Usa w: 50, h: 50
+    } else {
+      ctx.fillStyle = "cyan";
+      ctx.fillRect(p.x, p.y, p.w, p.h); // Usa w: 50, h: 50
+    }
     ctx.fillStyle = "white";
     ctx.font = "16px Arial";
-    ctx.fillText(p.key, p.x + 8, p.y + 20);
+    ctx.fillText(p.key, p.x + 14, p.y + 34); // Ajustado para 50x50
   });
 
   // HUD
@@ -589,14 +612,26 @@ function drawGame() {
   ctx.fillText("Kills: " + kills, 10, 20);
   ctx.fillText("Lives: " + lives, 10, 40);
   ctx.fillText("Ammo: " + ammo, 10, 60);
-  ctx.fillText(levelNames[difficulty], 10, 80); // Mostrar nivel de dificultad
+  ctx.fillText(levelNames[difficulty], 10, 80);
 }
 
 // --- LOOP ---
 function loop() {
-  if (gameState === "game") { updateGame(); drawGame(); }
-  else if (gameState === "paused") { drawGame(); } // Keep game state visible behind pause menu
-  else if (gameState === "gameover") { drawGame(); } // Keep game state visible behind game over menu
+  if (imagesLoaded < totalImages) return;
+  if (gameState === "game") {
+    updateGame();
+    drawGame();
+  } else if (gameState === "paused") {
+    drawGame();
+  } else if (gameState === "dead") {
+    drawGame();
+    if (deathTimeout && Date.now() > deathTimeout) {
+      showGameOverMenu();
+      deathTimeout = null;
+    }
+  } else if (gameState === "gameover") {
+    drawGame();
+  }
   requestAnimationFrame(loop);
 }
 
