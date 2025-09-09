@@ -1,56 +1,82 @@
- body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-    }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
 
-    canvas {
-      background: black;
-      display: block;
-      margin: auto;
-    }
+canvas {
+  background: black;
+  display: block;
+  margin: auto;
+}
 
-    .controls {
-      text-align: center;
-      margin-top: 10px;
-    }
+.controls {
+  text-align: center;
+  margin-top: 10px;
+  display: none; /* Ocultar por defecto */
+}
 
-    button {
-      width: 200px;
-      padding: 10px;
-      font-size: 18px;
-      margin: 5px auto;
-      cursor: pointer;
-      display: block;
-    }
+/* Mostrar controles en móvil */
+@media (max-width: 768px) {
+  .controls {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
 
-    select {
-      width: 200px;
-      padding: 10px;
-      font-size: 18px;
-      margin: 5px auto;
-      cursor: pointer;
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
-      border: 2px solid white;
-    }
+  .controls button {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+    padding: 0;
+    margin: 5px;
+    display: inline-block;
+  }
 
-    /* Ocultar botones en PC */
-    @media (min-width: 769px) {
-      .controls {
-        display: none;
-      }
-    }
+  #powerUp {
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+  }
+}
 
-    /* Menús */
-    .menu {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.85);
-      padding: 20px;
-      border: 2px solid white;
-      text-align: center;
-      color: white;
-      display: none;
-    }
+/* Ocultar botones en PC */
+@media (min-width: 769px) {
+  .controls {
+    display: none;
+  }
+}
+
+button {
+  width: 200px;
+  padding: 10px;
+  font-size: 18px;
+  margin: 5px auto;
+  cursor: pointer;
+  display: block;
+}
+
+select {
+  width: 200px;
+  padding: 10px;
+  font-size: 18px;
+  margin: 5px auto;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 2px solid white;
+}
+
+/* Menús */
+.menu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.85);
+  padding: 20px;
+  border: 2px solid white;
+  text-align: center;
+  color: white;
+  display: none;
+}

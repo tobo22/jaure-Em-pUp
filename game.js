@@ -75,6 +75,9 @@ document.addEventListener("keydown", e => {
   if (gameState === "game" && e.key === "Escape") {
     gameState = "paused";
     showPauseMenu();
+  } else if (gameState === "paused" && e.key === "Escape") {
+    gameState = "game";
+    pauseMenu.style.display = "none";
   }
 });
 document.addEventListener("keyup", e => keys[e.key] = false);
@@ -84,6 +87,32 @@ const isAndroid = /Android/i.test(navigator.userAgent);
 if (isAndroid) {
   document.getElementById("changeKeysBtn").style.display = 'none';
 }
+
+// Controles móviles
+const leftBtn = document.getElementById("left");
+const rightBtn = document.getElementById("right");
+const shootBtn = document.getElementById("shoot");
+const powerUpBtn = document.getElementById("powerUp");
+
+leftBtn.addEventListener("touchstart", () => keys[keyBindings.left] = true);
+leftBtn.addEventListener("touchend", () => keys[keyBindings.left] = false);
+rightBtn.addEventListener("touchstart", () => keys[keyBindings.right] = true);
+rightBtn.addEventListener("touchend", () => keys[keyBindings.right] = false);
+shootBtn.addEventListener("touchstart", () => { if (gameState === "game") shoot(); });
+
+// Botón de power-up
+powerUpBtn.addEventListener("touchstart", () => {
+  if (gameState !== "game" || !activePower || powerHandled) return;
+  const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
+  const prevLives = lives;
+  ammo = Math.min(ammo + 3, maxAmmo); // +3 balas si acierta
+  playerColor = "green"; // Cambiar a verde si acierta
+  colorChangeTimeout = Date.now() + 2000;
+  powerUps = [];
+  activePower = null;
+  powerHandled = true;
+  powerUpBtn.style.display = "none";
+});
 
 // --- MENÚS ---
 const menu = document.getElementById("menu");
@@ -112,6 +141,11 @@ document.getElementById("creditsBtn").onclick = () => { credits.style.display = 
 document.getElementById("backToMenuBtn").onclick = () => showMenu();
 document.getElementById("retryBtn").onclick = () => { resetGame(); showGame(); };
 document.getElementById("backMenuBtn").onclick = () => showMenu();
+pauseMenu.querySelector("#continueBtn").onclick = () => {
+  gameState = "game";
+  pauseMenu.style.display = "none";
+};
+pauseMenu.querySelector("#backToMainMenuBtn").onclick = () => showMenu();
 
 // Selector de dificultad
 document.getElementById("difficultySelect").onchange = (e) => {
@@ -206,6 +240,7 @@ function resetGame() {
   playerColor = "yellow";
   flashTimeout = null;
   canvas.style.background = "black"; // Restaurar fondo
+  powerUpBtn.style.display = "none"; // Ocultar botón de power-up al resetear
 }
 
 // --- DISPARAR ---
@@ -276,6 +311,7 @@ function handlePowerUps() {
       p.active = false;
       powerTimeout = Date.now() + 1000;
       powerHandled = false;
+      if (isAndroid) powerUpBtn.style.display = "inline-block"; // Mostrar botón en móvil
     }
 
     // expira o sale de la pantalla
@@ -283,10 +319,11 @@ function handlePowerUps() {
       powerUps.splice(i, 1);
       activePower = null;
       powerHandled = true;
+      powerUpBtn.style.display = "none"; // Ocultar botón en móvil
     }
   });
 
-  if (activePower && !powerHandled) {
+  if (activePower && !powerHandled && !isAndroid) {
     document.onkeydown = (e) => {
       if (gameState !== "game") return;
       const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
@@ -326,6 +363,7 @@ function handlePowerUps() {
     powerHandled = true;
     document.onkeydown = null;
     playerColor = "yellow";
+    powerUpBtn.style.display = "none"; // Ocultar botón en móvil
   }
 }
 
@@ -427,6 +465,7 @@ function updateGame() {
   if (lives <= 0) {
     gameState = "gameover";
     showGameOverMenu();
+    powerUpBtn.style.display = "none"; // Ocultar botón en game over
   }
 }
 
