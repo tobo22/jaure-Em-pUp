@@ -6,7 +6,8 @@ body {
 canvas {
   background: black;
   display: block;
-  margin: auto;
+  margin: 0 auto;
+  position: relative;
 }
 
 .controls {
@@ -21,22 +22,25 @@ canvas {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 15px;
+    z-index: 10;
   }
 
   .controls button {
-    width: 60px;
-    height: 60px;
-    font-size: 24px;
+    width: 70px;
+    height: 70px;
+    font-size: 28px;
     padding: 0;
     margin: 5px;
     display: inline-block;
+    touch-action: manipulation;
   }
 
   #powerUp {
-    width: 60px;
-    height: 60px;
-    font-size: 24px;
+    width: 70px;
+    height: 70px;
+    font-size: 28px;
+    touch-action: manipulation;
   }
 }
 
@@ -54,6 +58,7 @@ button {
   margin: 5px auto;
   cursor: pointer;
   display: block;
+  touch-action: manipulation;
 }
 
 select {
@@ -79,4 +84,7 @@ select {
   text-align: center;
   color: white;
   display: none;
+  max-width: 600px; /* Igual al ancho del canvas */
+  box-sizing: border-box;
+  z-index: 10;
 }
