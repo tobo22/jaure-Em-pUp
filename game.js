@@ -1,9 +1,21 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-// Ajustamos canvas
-canvas.width = 600;
-canvas.height = 600;
+// Ajustar canvas responsive en móvil
+function resizeCanvas() {
+  if (window.innerWidth <= 768) {
+    canvas.width = Math.min(window.innerWidth, 600);
+    canvas.height = window.innerHeight - (window.matchMedia("(orientation: landscape)").matches ? 80 : 100);
+    player.y = canvas.height - 60;
+    player.x = Math.min(player.x, canvas.width - player.w); // Asegurar que el jugador no salga del canvas
+  } else {
+    canvas.width = 600;
+    canvas.height = 600;
+  }
+}
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', resizeCanvas);
+resizeCanvas();
 
 // Estados
 let gameState = "menu"; // menu, keybinds, game, paused, gameover
@@ -12,44 +24,43 @@ let gameState = "menu"; // menu, keybinds, game, paused, gameover
 let defaultKeys = { left: "ArrowLeft", right: "ArrowRight", shoot: " " };
 let keyBindings = JSON.parse(localStorage.getItem("keyBindings")) || defaultKeys;
 
-// Record
+// Persistencia de record de kills
 let highScore = parseInt(localStorage.getItem("highScore")) || 0;
 
-// Dificultad
-let difficulty = localStorage.getItem("difficulty") || "easy";
+// Persistencia de dificultad
+let difficulty = localStorage.getItem("difficulty") || "easy"; // Por defecto: fácil
 
+// Nombres de los niveles
 const levelNames = {
   easy: "Nivel Agua",
   medium: "Nivel Café",
   hard: "Nivel Alcohol"
 };
 
-// Stats enemigos
+// Estadísticas de enemigos por dificultad
 const enemyStats = {
   easy: {
     red: { hp: 1, ammoReward: 2, livesLost: 1, livesGained: 0 },
     blue: { hp: 3, ammoReward: 4, livesLost: 3, livesGained: 1 },
     purple: { hp: 3, ammoReward: 5, livesLost: 5, livesGained: 2 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 }
+    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 } // Juan
   },
   medium: {
     red: { hp: 2, ammoReward: 2, livesLost: 1, livesGained: 0 },
     blue: { hp: 5, ammoReward: 5, livesLost: 3, livesGained: 1 },
     purple: { hp: 5, ammoReward: 7, livesLost: 5, livesGained: 2 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 }
+    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 } // Juan
   },
   hard: {
     red: { hp: 3, ammoReward: 3, livesLost: 3, livesGained: 0 },
     blue: { hp: 6, ammoReward: 6, livesLost: 5, livesGained: 1 },
     purple: { hp: 8, ammoReward: 10, livesLost: 7, livesGained: 2 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 }
+    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 } // Juan
   }
 };
 
 // Jugador
 let player = { x: canvas.width/2 - 15, y: canvas.height - 60, w: 30, h: 30, speed: 5 };
-let playerColor = "yellow";
-let colorTimeout = null;
 
 // Stats
 let bullets = [];
@@ -61,8 +72,13 @@ let ammo = 10;
 // Power-ups
 let powerUps = [];
 let activePower = null, powerTimeout = null, powerHandled = false;
+let hasCollidedWithPowerUp = false; // Nuevo flag para rastrear colisión
 
-// Fondo rojo al perder vidas
+// Color change for power-up
+let colorChangeTimeout = null;
+let playerColor = "yellow"; // Color por defecto
+
+// Efecto de fondo rojo
 let flashTimeout = null;
 
 // Input
@@ -79,9 +95,11 @@ document.addEventListener("keydown", e => {
 });
 document.addEventListener("keyup", e => keys[e.key] = false);
 
-// Android
-const isAndroid = /Android/i.test(navigator.userAgent);
-if (isAndroid) document.getElementById("changeKeysBtn").style.display = 'none';
+// Detectar móvil
+const isMobile = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+if (isMobile) {
+  document.getElementById("changeKeysBtn").style.display = 'none';
+}
 
 // Controles móviles
 const leftBtn = document.getElementById("left");
@@ -95,15 +113,36 @@ rightBtn.addEventListener("touchstart", () => keys[keyBindings.right] = true);
 rightBtn.addEventListener("touchend", () => keys[keyBindings.right] = false);
 shootBtn.addEventListener("touchstart", () => { if (gameState === "game") shoot(); });
 
-// Botón power-up en Android
+// Botón de power-up
 powerUpBtn.addEventListener("touchstart", () => {
-  if (gameState !== "game" || !activePower || powerHandled) return;
+  if (gameState !== "game" || powerHandled) return;
   const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
-  ammo = Math.min(ammo + 3, maxAmmo);
-  flashPlayer("green"); // correcto
+  const prevLives = lives;
+  if (hasCollidedWithPowerUp && activePower) {
+    ammo = Math.min(ammo + 3, maxAmmo); // +3 balas si acierta
+    playerColor = "green"; // Cambiar a verde si acierta
+    colorChangeTimeout = Date.now() + 2000;
+  } else {
+    lives -= 1; // -1 vida si tocas sin colisionar
+    playerColor = "red"; // Cambiar a rojo si falla
+    colorChangeTimeout = Date.now() + 2000;
+  }
+  // Activar efecto de fondo rojo si se perdió vida
+  if (lives < prevLives && !flashTimeout) {
+    flashTimeout = Date.now() + 1000;
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
+    gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
+    canvas.style.background = gradient;
+    setTimeout(() => {
+      canvas.style.background = "black";
+      flashTimeout = null;
+    }, 1000);
+  }
   powerUps = [];
   activePower = null;
   powerHandled = true;
+  hasCollidedWithPowerUp = false;
   powerUpBtn.style.display = "none";
 });
 
@@ -127,7 +166,7 @@ document.body.appendChild(pauseMenu);
 
 const gameOverMenu = document.getElementById("gameOverMenu");
 
-// Botones menú
+// Botones
 document.getElementById("startBtn").onclick = () => { resetGame(); showGame(); };
 document.getElementById("changeKeysBtn").onclick = () => showKeyMenu();
 document.getElementById("creditsBtn").onclick = () => { credits.style.display = 'block'; };
@@ -140,19 +179,25 @@ pauseMenu.querySelector("#continueBtn").onclick = () => {
 };
 pauseMenu.querySelector("#backToMainMenuBtn").onclick = () => showMenu();
 
+// Selector de dificultad
 document.getElementById("difficultySelect").onchange = (e) => {
   difficulty = e.target.value;
   localStorage.setItem("difficulty", difficulty);
 };
 
-// --- TECLAS PERSONALIZADAS ---
+// Cambiar teclas
 let changingKey = null;
+document.getElementById("leftKeyBtn").onclick = () => waitKey("left", document.getElementById("leftKeyBtn"));
+document.getElementById("rightKeyBtn").onclick = () => waitKey("right", document.getElementById("rightKeyBtn"));
+document.getElementById("shootKeyBtn").onclick = () => waitKey("shoot", document.getElementById("shootKeyBtn"));
+
 function waitKey(action, button) {
-  if (changingKey) return;
+  if (changingKey) return; // Evitar múltiples cambios simultáneos
   changingKey = action;
   document.getElementById("keyPrompt").style.display = "block";
   button.textContent = "Presiona una tecla...";
   window.onkeydown = (e) => {
+    // Evitar que la misma tecla se asigne a múltiples acciones
     if (Object.values(keyBindings).includes(e.key) && keyBindings[action] !== e.key) {
       alert("¡Esa tecla ya está asignada!");
       return;
@@ -165,9 +210,6 @@ function waitKey(action, button) {
     changingKey = null;
   };
 }
-document.getElementById("leftKeyBtn").onclick = () => waitKey("left", document.getElementById("leftKeyBtn"));
-document.getElementById("rightKeyBtn").onclick = () => waitKey("right", document.getElementById("rightKeyBtn"));
-document.getElementById("shootKeyBtn").onclick = () => waitKey("shoot", document.getElementById("shootKeyBtn"));
 
 function updateKeyButtons() {
   document.getElementById("leftKeyBtn").textContent = "Izquierda: " + (keyBindings.left === " " ? "Espacio" : keyBindings.left);
@@ -175,7 +217,6 @@ function updateKeyButtons() {
   document.getElementById("shootKeyBtn").textContent = "Disparo: " + (keyBindings.shoot === " " ? "Espacio" : keyBindings.shoot);
 }
 
-// --- MENÚS ---
 function showMenu() {
   gameState = "menu";
   menu.style.display = 'block';
@@ -183,17 +224,42 @@ function showMenu() {
   credits.style.display = 'none';
   pauseMenu.style.display = 'none';
   gameOverMenu.style.display = 'none';
-  highScoreDisplay.textContent = `Récord Personal de Kills: ${highScore}`;
-  document.getElementById("difficultySelect").value = difficulty;
+  highScoreDisplay.textContent = `Récord Personal de Kills: ${highScore}`; // Mostrar récord personal
+  document.getElementById("difficultySelect").value = difficulty; // Restaurar dificultad seleccionada
 }
-function showKeyMenu() { gameState = "keybinds"; menu.style.display = 'none'; keyMenu.style.display = 'block'; updateKeyButtons(); }
-function showGame() { gameState = "game"; menu.style.display = 'none'; keyMenu.style.display = 'none'; credits.style.display = 'none'; pauseMenu.style.display = 'none'; gameOverMenu.style.display = 'none'; }
-function showPauseMenu() { pauseMenu.style.display = 'block'; document.getElementById("pauseLives").textContent = lives; document.getElementById("pauseAmmo").textContent = ammo; document.getElementById("pauseKills").textContent = kills; }
-function showGameOverMenu() { gameOverMenu.style.display = 'block'; document.getElementById("finalStats").textContent = `Vidas: ${lives} | Balas: ${ammo} | Kills: ${kills}`; }
+
+function showKeyMenu() {
+  gameState = "keybinds";
+  menu.style.display = 'none';
+  keyMenu.style.display = 'block';
+  updateKeyButtons();
+}
+
+function showGame() {
+  gameState = "game";
+  menu.style.display = 'none';
+  keyMenu.style.display = 'none';
+  credits.style.display = 'none';
+  pauseMenu.style.display = 'none';
+  gameOverMenu.style.display = 'none';
+}
+
+function showPauseMenu() {
+  pauseMenu.style.display = 'block';
+  document.getElementById("pauseLives").textContent = lives;
+  document.getElementById("pauseAmmo").textContent = ammo;
+  document.getElementById("pauseKills").textContent = kills;
+}
+
+function showGameOverMenu() {
+  gameOverMenu.style.display = 'block';
+  document.getElementById("finalStats").textContent = `Vidas: ${lives} | Balas: ${ammo} | Kills: ${kills}`;
+}
 
 // --- RESET ---
 function resetGame() {
   player.x = canvas.width/2 - 15;
+  player.y = canvas.height - 60;
   bullets = [];
   enemies = [];
   powerUps = [];
@@ -203,12 +269,15 @@ function resetGame() {
   activePower = null;
   powerTimeout = null;
   powerHandled = false;
+  hasCollidedWithPowerUp = false;
+  colorChangeTimeout = null;
+  playerColor = "yellow";
   flashTimeout = null;
-  canvas.style.background = "black";
-  powerUpBtn.style.display = "none";
+  canvas.style.background = "black"; // Restaurar fondo
+  powerUpBtn.style.display = "none"; // Ocultar botón de power-up al resetear
 }
 
-// --- SHOOT ---
+// --- DISPARAR ---
 function shoot() {
   if (ammo > 0) {
     bullets.push({ x: player.x + player.w/2 - 2, y: player.y, w: 4, h: 10, speed: 7 });
@@ -216,13 +285,23 @@ function shoot() {
   }
 }
 
-// --- ENEMIGOS ---
+// --- SPAWN ENEMIGOS ---
 function spawnEnemy() {
   if (gameState !== "game") return;
+
   let type = kills >= 50 ? "blue" : "red";
   if (kills >= 10 && kills < 50 && Math.random() < 0.3) type = "blue";
-  if (kills >= 50 && Math.random() < 0.1) type = "purple";
-  if (kills === 22 && Math.random() < 0.02) type = "brown";
+
+  // Generar enemigo violeta después de 50 kills
+  if (kills >= 50 && Math.random() < 0.1) {
+    type = "purple";
+  }
+
+  // Generar enemigo marrón (Juan) en 22 kills
+  if (kills === 22 && Math.random() < 0.02) {
+    type = "brown";
+  }
+
   const stats = enemyStats[difficulty][type];
   enemies.push({
     x: Math.random()*(canvas.width-30),
@@ -232,53 +311,96 @@ function spawnEnemy() {
     speed: type === "purple" ? 1 : 2,
     type,
     hp: stats.hp,
-    maxHp: stats.hp,
+    maxHp: stats.hp, // Guardar HP inicial para la barra de vida
     livesLost: stats.livesLost,
     livesGained: stats.livesGained,
     ammoReward: stats.ammoReward,
-    direction: type === "purple" ? 1 : 0,
-    sideSpeed: type === "purple" ? 1 : 0
+    direction: type === "purple" ? 1 : 0, // Para movimiento lateral
+    sideSpeed: type === "purple" ? 1 : 0 // Velocidad lateral lenta
   });
 }
 setInterval(spawnEnemy, 1500);
 
-// --- POWER-UPS ---
+// --- SPAWN POWER-UP ---
 function spawnPowerUp() {
   if (gameState !== "game") return;
   let x = Math.random()*(canvas.width-30);
-  let y = -30;
+  let y = -30; // Comienza desde la parte superior
   let randomKey = String.fromCharCode(65 + Math.floor(Math.random()*26));
   powerUps.push({ x, y, w:30, h:30, key: randomKey, active: true, speed: 2 });
 }
 setInterval(spawnPowerUp, 10000);
 
+// --- POWER-UPS ---
 function handlePowerUps() {
   powerUps.forEach((p, i) => {
+    // Mover power-up hacia abajo
     p.y += p.speed;
-    if (p.active && player.x < p.x + p.w && player.x + player.w > p.x && player.y < p.y + p.h && player.y + player.h > p.y) {
+
+    // colisión jugador
+    if (p.active &&
+        player.x < p.x + p.w && player.x + player.w > p.x &&
+        player.y < p.y + p.h && player.y + player.h > p.y) {
       activePower = p;
       p.active = false;
       powerTimeout = Date.now() + 1000;
       powerHandled = false;
-      if (isAndroid) powerUpBtn.style.display = "inline-block";
+      hasCollidedWithPowerUp = true;
+      if (isMobile) powerUpBtn.style.display = "inline-block"; // Mostrar botón en móvil
     }
+
+    // expira o sale de la pantalla
     if (!p.active && Date.now() > powerTimeout || p.y >= canvas.height) {
+      if (!p.active && !powerHandled && hasCollidedWithPowerUp) {
+        const prevLives = lives;
+        lives -= 1; // -1 vida si colisionaste pero no tocaste el botón
+        playerColor = "red"; // Cambiar a rojo si falla
+        colorChangeTimeout = Date.now() + 2000;
+        if (lives < prevLives && !flashTimeout) {
+          flashTimeout = Date.now() + 1000;
+          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+          gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
+          gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
+          canvas.style.background = gradient;
+          setTimeout(() => {
+            canvas.style.background = "black";
+            flashTimeout = null;
+          }, 1000);
+        }
+      }
       powerUps.splice(i, 1);
       activePower = null;
       powerHandled = true;
-      powerUpBtn.style.display = "none";
+      hasCollidedWithPowerUp = false;
+      powerUpBtn.style.display = "none"; // Ocultar botón en móvil
     }
   });
-  if (activePower && !powerHandled && !isAndroid) {
+
+  if (activePower && !powerHandled && !isMobile) {
     document.onkeydown = (e) => {
       if (gameState !== "game") return;
       const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
+      const prevLives = lives; // Guardar vidas antes del cambio
       if (e.key.toUpperCase() === activePower.key) {
-        ammo = Math.min(ammo + 3, maxAmmo);
-        flashPlayer("green");
-      } else if (e.key !== "Escape") {
-        lives -= 1;
-        flashPlayer("red");
+        ammo = Math.min(ammo + 3, maxAmmo); // +3 balas si acierta
+        playerColor = "green"; // Cambiar a verde si acierta
+        colorChangeTimeout = Date.now() + 2000;
+      } else if (e.key !== "Escape") { // Ignorar Escape para evitar penalización
+        lives -= 1; // -1 vida si falla
+        playerColor = "red"; // Cambiar a rojo si falla
+        colorChangeTimeout = Date.now() + 2000;
+      }
+      // Activar efecto de fondo rojo si se perdió vida
+      if (lives < prevLives && !flashTimeout) {
+        flashTimeout = Date.now() + 1000;
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
+        gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
+        canvas.style.background = gradient;
+        setTimeout(() => {
+          canvas.style.background = "black";
+          flashTimeout = null;
+        }, 1000);
       }
       powerUps = [];
       activePower = null;
@@ -286,39 +408,56 @@ function handlePowerUps() {
       document.onkeydown = null;
     };
   }
+
+  // Si expira el tiempo y no se presionó ninguna tecla, volver a amarillo
   if (activePower && Date.now() > powerTimeout && !powerHandled) {
+    if (hasCollidedWithPowerUp) {
+      const prevLives = lives;
+      lives -= 1; // -1 vida si colisionaste pero no tocaste el botón
+      playerColor = "red"; // Cambiar a rojo si falla
+      colorChangeTimeout = Date.now() + 2000;
+      if (lives < prevLives && !flashTimeout) {
+        flashTimeout = Date.now() + 1000;
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
+        gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
+        canvas.style.background = gradient;
+        setTimeout(() => {
+          canvas.style.background = "black";
+          flashTimeout = null;
+        }, 1000);
+      }
+    }
     powerUps = [];
     activePower = null;
     powerHandled = true;
     document.onkeydown = null;
-    powerUpBtn.style.display = "none";
+    powerUpBtn.style.display = "none"; // Ocultar botón en móvil
   }
-}
-
-// --- FLASH PLAYER ---
-function flashPlayer(color) {
-  playerColor = color;
-  clearTimeout(colorTimeout);
-  colorTimeout = setTimeout(() => playerColor = "yellow", 1000);
 }
 
 // --- UPDATE ---
 function updateGame() {
+  // Movimiento jugador
   if (keys[keyBindings.left] && player.x > 0) player.x -= player.speed;
   if (keys[keyBindings.right] && player.x + player.w < canvas.width) player.x += player.speed;
   if (keys[keyBindings.shoot]) { shoot(); keys[keyBindings.shoot] = false; }
 
+  // Balas
   bullets.forEach(b => b.y -= b.speed);
   bullets = bullets.filter(b => b.y > 0);
 
+  // Enemigos
   enemies.forEach(en => {
     en.y += en.speed;
     if (en.type === "purple") {
       en.x += en.sideSpeed * en.direction;
-      if (en.x <= 0 || en.x + en.w >= canvas.width) en.direction *= -1;
+      if (en.x <= 0 || en.x + en.w >= canvas.width) en.direction *= -1; // Cambiar dirección al tocar bordes
     }
   });
 
+  // Filtrar enemigos que pasan
+  const prevLives = lives; // Guardar vidas antes del cambio
   enemies = enemies.filter(en => {
     if (en.y >= canvas.height) {
       lives = Math.max(0, lives - en.livesLost);
@@ -328,6 +467,20 @@ function updateGame() {
     return true;
   });
 
+  // Activar efecto de fondo rojo si se perdió vida
+  if (lives < prevLives && !flashTimeout) {
+    flashTimeout = Date.now() + 1000;
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "rgba(255, 0, 0, 0.8)");
+    gradient.addColorStop(1, "rgba(100, 0, 0, 0.8)");
+    canvas.style.background = gradient;
+    setTimeout(() => {
+      canvas.style.background = "black";
+      flashTimeout = null;
+    }, 1000);
+  }
+
+  // colisiones balas-enemigos
   let bulletsToRemove = new Set();
   bullets.forEach((b, bi) => {
     enemies.forEach((en, ei) => {
@@ -337,6 +490,7 @@ function updateGame() {
         if (en.hp <= 0) {
           const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
           lives += en.livesGained;
+          if (en.type === "brown") { enemies.splice(ei, 1); return; }
           enemies.splice(ei, 1);
           kills++;
           ammo = Math.min(ammo + en.ammoReward, maxAmmo);
@@ -344,61 +498,106 @@ function updateGame() {
             highScore = kills;
             localStorage.setItem("highScore", highScore);
           }
+          // Spawn brown (juan) with 2% chance exactly at 22 kills
+          if (kills === 22 && Math.random() < 0.02) {
+            const stats = enemyStats[difficulty].brown;
+            enemies.push({
+              x: Math.random()*(canvas.width-30),
+              y: -30,
+              w: 30,
+              h: 30,
+              speed: 2,
+              type: "brown",
+              hp: stats.hp,
+              maxHp: stats.hp,
+              livesLost: stats.livesLost,
+              livesGained: stats.livesGained,
+              ammoReward: stats.ammoReward
+            });
+          }
         }
       }
     });
   });
-  bullets = bullets.filter((_, i) => !bulletsToRemove.has(i));
+
+  // Eliminar balas después de procesar todas las colisiones
+  bullets = bullets.filter((_, bi) => !bulletsToRemove.has(bi));
 
   handlePowerUps();
 
-  if (lives <= 0) gameState = "gameover";
+  // Volver al color por defecto (amarillo) después de que expire el cambio de color
+  if (colorChangeTimeout && Date.now() > colorChangeTimeout) {
+    playerColor = "yellow";
+    colorChangeTimeout = null;
+  }
+
+  if (lives <= 0) {
+    gameState = "gameover";
+    showGameOverMenu();
+    powerUpBtn.style.display = "none"; // Ocultar botón en game over
+  }
 }
 
 // --- DRAW ---
 function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Jugador
   ctx.fillStyle = playerColor;
   ctx.fillRect(player.x, player.y, player.w, player.h);
 
-  bullets.forEach(b => { ctx.fillStyle = "white"; ctx.fillRect(b.x, b.y, b.w, b.h); });
+  // Balas
+  ctx.fillStyle = "white";
+  bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
 
+  // Enemigos con barras de vida
   enemies.forEach(en => {
-    ctx.fillStyle = en.type === "red" ? "red" : en.type === "blue" ? "blue" : en.type === "purple" ? "purple" : "brown";
+    // Dibujar enemigo
+    if (en.type === "red") ctx.fillStyle = "red";
+    else if (en.type === "blue") ctx.fillStyle = "blue";
+    else if (en.type === "brown") ctx.fillStyle = "brown";
+    else if (en.type === "purple") ctx.fillStyle = "purple";
     ctx.fillRect(en.x, en.y, en.w, en.h);
-    ctx.fillStyle = "lime";
-    ctx.fillRect(en.x, en.y - 5, (en.w * en.hp)/en.maxHp, 4);
+
+    // Dibujar barra de vida
+    if (en.hp > 0) {
+      const healthRatio = en.hp / en.maxHp;
+      const barWidth = en.w * healthRatio;
+      const barHeight = 5;
+      const barX = en.x;
+      const barY = en.y - 10;
+      // Color de la barra: verde (1) a rojo (0)
+      const red = Math.floor(255 * (1 - healthRatio));
+      const green = Math.floor(255 * healthRatio);
+      ctx.fillStyle = `rgb(${red}, ${green}, 0)`;
+      ctx.fillRect(barX, barY, barWidth, barHeight);
+    }
   });
 
+  // Power-ups
   powerUps.forEach(p => {
-    ctx.fillStyle = "limegreen";
+    ctx.fillStyle = "green";
     ctx.fillRect(p.x, p.y, p.w, p.h);
-    ctx.fillStyle = "black";
+    ctx.fillStyle = "white";
     ctx.font = "16px Arial";
     ctx.fillText(p.key, p.x + 8, p.y + 20);
   });
 
+  // HUD
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
-  ctx.fillText("Vidas: " + lives, 10, 20);
-  ctx.fillText("Balas: " + ammo, 10, 40);
-  ctx.fillText("Kills: " + kills, 10, 60);
-  ctx.fillText(levelNames[difficulty], canvas.width - 130, 20);
-  ctx.fillText("Récord: " + highScore, canvas.width - 130, 40);
+  ctx.fillText("Kills: " + kills, 10, 20);
+  ctx.fillText("Lives: " + lives, 10, 40);
+  ctx.fillText("Ammo: " + ammo, 10, 60);
+  ctx.fillText(levelNames[difficulty], 10, 80); // Mostrar nivel de dificultad
 }
 
 // --- LOOP ---
-function gameLoop() {
-  if (gameState === "game") {
-    updateGame();
-    drawGame();
-  } else if (gameState === "gameover") {
-    showGameOverMenu();
-  }
-  requestAnimationFrame(gameLoop);
+function loop() {
+  if (gameState === "game") { updateGame(); drawGame(); }
+  else if (gameState === "paused") { drawGame(); } // Keep game state visible behind pause menu
+  else if (gameState === "gameover") { drawGame(); } // Keep game state visible behind game over menu
+  requestAnimationFrame(loop);
 }
-gameLoop();
 
-// Menú inicial
-showMenu();
+loop();

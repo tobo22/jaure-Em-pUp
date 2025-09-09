@@ -11,8 +11,6 @@ canvas {
 }
 
 .controls {
-  text-align: center;
-  margin-top: 10px;
   display: none; /* Ocultar por defecto */
 }
 
@@ -21,26 +19,76 @@ canvas {
   .controls {
     display: flex;
     justify-content: center;
-    flex-wrap: wrap;
+    align-items: center;
+    position: fixed;
+    bottom: 10px;
+    left: 0;
+    right: 0;
+    z-index: 100;
+  }
+
+  .controls-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .movement-controls {
+    display: flex;
+    justify-content: center;
     gap: 15px;
-    z-index: 10;
   }
 
   .controls button {
-    width: 70px;
-    height: 70px;
-    font-size: 28px;
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
     padding: 0;
-    margin: 5px;
+    margin: 0;
     display: inline-block;
     touch-action: manipulation;
   }
 
   #powerUp {
-    width: 70px;
-    height: 70px;
-    font-size: 28px;
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
     touch-action: manipulation;
+  }
+
+  canvas {
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - 100px); /* Espacio para controles */
+  }
+}
+
+/* Ajustes para orientación horizontal */
+@media (max-width: 768px) and (orientation: landscape) {
+  .controls-container {
+    flex-direction: row;
+    gap: 20px;
+  }
+
+  .movement-controls {
+    gap: 10px;
+  }
+
+  .controls button {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+
+  #powerUp {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+
+  canvas {
+    max-height: calc(100vh - 80px); /* Menos espacio en horizontal */
   }
 }
 
@@ -84,7 +132,7 @@ select {
   text-align: center;
   color: white;
   display: none;
-  max-width: 600px; /* Igual al ancho del canvas */
+  max-width: 90%;
   box-sizing: border-box;
   z-index: 10;
 }
