@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>jaure'Em pUp</title>
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+  <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+  <!-- Controles móviles -->
+  <div class="controls">
+    <button id="left">⬅️</button>
+    <button id="shoot">🔫</button>
+    <button id="right">➡️</button>
+  </div>
+
+  <!-- Menú principal -->
+  <div id="menu" class="menu" style="display:block;">
+    <h1>jaure'Em pUp</h1>
+    <p id="highScore" style="color: yellow;"></p>
+    <button id="startBtn">Iniciar</button>
+    <select id="difficultySelect">
+      <option value="easy">modo: agua</option>
+      <option value="medium">modo: cafe</option>
+      <option value="hard">modo: alcohol</option>
+    </select>
+    <button id="changeKeysBtn">Cambiar teclas</button>
+    <button id="creditsBtn">Créditos</button>
+    <div id="credits" style="display:none; margin-top:10px;">(Vacío por ahora)</div>
+  </div>
+
+  <!-- Submenú de teclas -->
+  <div id="keyMenu" class="menu">
+    <h2>Cambiar teclas</h2>
+    <button id="leftKeyBtn">Izquierda: ←</button>
+    <button id="rightKeyBtn">Derecha: →</button>
+    <button id="shootKeyBtn">Disparo: Espacio</button>
+    <p id="keyPrompt" style="color:yellow; display:none;">Presiona una tecla...</p>
+    <button id="backToMenuBtn">Volver</button>
+  </div>
+
+  <!-- Menú de Game Over -->
+  <div id="gameOverMenu" class="menu">
+    <h2>GAME OVER</h2>
+    <p id="finalStats"></p>
+    <button id="retryBtn">Reintentar</button>
+    <button id="backMenuBtn">Volver al menú</button>
+  </div>
+
+  <!-- data para jara -->
+   <div>
+    <h1>data bien simple para jara</h1>
+    <h2>nivel agua (facil)</h2>
+    <p>rojo: 1 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extras</p>
+    <p>azul: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 4 balas y 1 vidas extras</p>
+    <p>violeta: 3 de vida, si pasa te saca 5 de vida, si lo matas te da 5 balas y 2 vidas extras</p>
+    <br>
+    <h2>nivel cafe (intermedio)</h2>
+    <p>rojo: 2 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extras</p>
+    <p>azul: 5 de vida, si pasa te saca 3 de vida, si lo matas te da 5 balas y 1 vidas extras</p>
+    <p>violeta: 5 de vida, si pasa te saca 5 de vida, si lo matas te da 7 balas y 2 vidas extras</p>
+    <br>
+    <h2>nivel alcohol (dificil)</h2>
+    <p>rojo: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 3 balas y 0 vidas extras</p>
+    <p>azul: 6 de vida, si pasa te saca 6 de vida, si lo matas te da 5 balas y 1 vidas extras</p>
+    <p>violeta: 8 de vida, si pasa te saca 7 de vida, si lo matas te da 10 balas y 2 vidas extras</p>
+   </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+ body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      background: black;
+      display: block;
+      margin: auto;
+    }
+
+    .controls {
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    button {
+      width: 200px;
+      padding: 10px;
+      font-size: 18px;
+      margin: 5px auto;
+      cursor: pointer;
+      display: block;
+    }
+
+    select {
+      width: 200px;
+      padding: 10px;
+      font-size: 18px;
+      margin: 5px auto;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 2px solid white;
+    }
+
+    /* Ocultar botones en PC */
+    @media (min-width: 769px) {
+      .controls {
+        display: none;
+      }
+    }
+
+    /* Menús */
+    .menu {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.85);
+      padding: 20px;
+      border: 2px solid white;
+      text-align: center;
+      color: white;
+      display: none;
+    }
