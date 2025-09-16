@@ -30,16 +30,19 @@
       <option value="medium">modo: cafe</option>
       <option value="hard">modo: alcohol</option>
     </select>
-    <button id="changeKeysBtn">Cambiar teclas</button>
+    <button id="changeKeysBtn">Ajustes</button>
     <button id="creditsBtn">Créditos</button>
+    <button id="recordsBtn">Records</button>
   </div>
 
-  <!-- Submenú de teclas -->
+  <!-- Submenú de ajustes -->
   <div id="keyMenu" class="menu">
-    <h2>Cambiar teclas</h2>
+    <h2>Ajustes</h2>
     <button id="leftKeyBtn">Izquierda: ←</button>
     <button id="rightKeyBtn">Derecha: →</button>
     <button id="shootKeyBtn">Disparo: Espacio</button>
+    <button id="resetKeysBtn">Resetear Controles</button>
+    <button id="textureToggleBtn">Texturas: Sí</button>
     <p id="keyPrompt" style="color:yellow; display:none;">Presiona una tecla...</p>
     <button id="backToMenuBtn">Volver</button>
   </div>
@@ -60,6 +63,14 @@
     <p id="finalStats"></p>
     <button id="retryBtn">Reintentar</button>
     <button id="backMenuBtn">Volver al menú</button>
+  </div>
+
+  <!-- Submenú de récords -->
+  <div id="recordsMenu" class="menu" style="display:none;">
+    <h2>Records</h2>
+    <div id="recordsList"></div>
+    <button id="deleteAllRecordsBtn">Borrar Todos los Records</button>
+    <button id="backToMenuFromRecords">Volver</button>
   </div>
 
   <!-- Datos para Jara -->

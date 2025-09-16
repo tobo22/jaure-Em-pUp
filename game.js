@@ -1,10 +1,13 @@
 // Estados y variables globales
-let gameState = "menu"; // menu, keybinds, credits, game, paused, dead, gameover
-let player = { x: 0, y: 0, w: 80, h: 80, speed: 5 }; // Jugador 80x80
+let gameState = "menu"; // menu, settings, credits, records, game, paused, dead, gameover
+let player = { x: 0, y: 0, w: 80, h: 80, speed: 5 }; // Jugador 80x80 para imágenes
+let playerCube = { w: 50, h: 50 }; // Cubo del jugador 100x100
+let enemyCube = { w: 50, h: 50 }; // Cubo de enemigos 50x50
 let bullets = [];
 let enemies = [];
 let kills = 0;
-let lives = 3;
+let lives = 3; // Vidas iniciales por defecto
+let maxLives = { easy: 20, medium: 15, hard: 10 }; // Límite de vidas por dificultad
 let ammo = 10;
 let powerUps = [];
 let activePower = null;
@@ -15,12 +18,13 @@ let colorChangeTimeout = null;
 let playerColor = "yellow"; // yellow, sad (solo para placeholder si falta jaure_muerto.png)
 let playerTempImage = null; // null, "powerup_success_easy", "jaure_feliz", "jaure_enojado", "jaure_muerto"
 let flashTimeout = null;
-let flashColor = null; // "red" o "brown"
+let flashColor = null; // "red" o "brown" para flashes de pantalla completa
+let playerFlash = null; // { color: "green"|"red", timeout: number } para flashes del jugador en modo cubo
 let keys = {};
 let defaultKeys = { left: "ArrowLeft", right: "ArrowRight", shoot: " " };
 let keyBindings = JSON.parse(localStorage.getItem("keyBindings")) || defaultKeys;
-let highScore = parseInt(localStorage.getItem("highScore")) || 0;
 let difficulty = localStorage.getItem("difficulty") || "easy"; // Por defecto: fácil
+let records = JSON.parse(localStorage.getItem("records")) || []; // Lista de récords
 let deathTimeout = null; // Temporizador para el estado dead
 let failedImages = []; // Rastrear imágenes fallidas
 let failedSounds = []; // Rastrear audios fallidos
@@ -29,6 +33,9 @@ let fps = 0; // FPS actual
 let currentSound = null; // Audio actual en reproducción
 let lastPlayedSound = null; // Última canción reproducida para comparar al reanudar
 let isMuted = false; // Estado de mute
+let shootStartTime = null; // Tiempo cuando se comienza a presionar la tecla de disparo
+let lastShotTime = null; // Tiempo del último disparo para controlar la cadencia
+let useTextures = JSON.parse(localStorage.getItem("useTextures")) ?? true; // Texturas activadas por defecto
 
 // Canvas
 const canvas = document.getElementById("gameCanvas");
@@ -159,7 +166,7 @@ for (let key in sounds) {
 // Función para reproducir música según el estado
 function playMusic(shouldResetMusic = false) {
   let expectedSound = null;
-  if (gameState === "menu" || gameState === "keybinds" || gameState === "credits") {
+  if (gameState === "menu" || gameState === "settings" || gameState === "credits" || gameState === "records") {
     expectedSound = sounds.menu_song;
   } else if (gameState === "gameover" || gameState === "dead") {
     expectedSound = sounds.gameover_song;
@@ -217,14 +224,14 @@ function resizeCanvas() {
   if (window.innerWidth <= 768) {
     canvas.width = Math.min(window.innerWidth, 800);
     canvas.height = window.innerHeight - (window.matchMedia("(orientation: landscape)").matches ? 80 : 100);
-    player.y = canvas.height - 120;
-    player.x = Math.min(player.x, canvas.width - player.w);
+    player.y = canvas.height - (useTextures ? player.h : playerCube.h) - 40;
+    player.x = Math.min(player.x, canvas.width - (useTextures ? player.w : playerCube.w));
   } else {
     canvas.width = 600;
     canvas.height = 600;
   }
-  player.x = canvas.width / 2 - 40;
-  player.y = canvas.height - 120;
+  player.x = canvas.width / 2 - (useTextures ? player.w : playerCube.w) / 2;
+  player.y = canvas.height - (useTextures ? player.h : playerCube.h) - 40;
   // Actualizar posiciones de los botones
   muteButton.x = canvas.width - muteButton.w - 10; // 10px desde el borde derecho
   muteButton.y = canvas.height - muteButton.h - 10; // 10px desde el borde inferior
@@ -246,13 +253,22 @@ document.addEventListener("keydown", e => {
     gameState = "game";
     pauseMenu.style.display = "none";
     playMusic();
+  } else if (gameState === "game" && e.key === keyBindings.shoot && !shootStartTime) {
+    shootStartTime = Date.now(); // Registrar tiempo inicial del disparo
+    shoot(); // Disparar inmediatamente al presionar
   }
 });
 document.addEventListener("keyup", e => {
   keys[e.key] = false;
+  if (e.key === keyBindings.shoot) {
+    shootStartTime = null; // Reiniciar al soltar la tecla
+    lastShotTime = null;
+  }
 });
 window.addEventListener("blur", () => {
   Object.keys(keys).forEach(key => keys[key] = false);
+  shootStartTime = null; // Reiniciar al perder foco
+  lastShotTime = null;
 });
 
 // Detectar clics/toques en los botones del canvas
@@ -336,16 +352,19 @@ powerUpBtn.addEventListener("touchstart", () => {
   const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
   const prevLives = lives;
   if (hasCollidedWithPowerUp && activePower) {
-    ammo = Math.min(ammo + 3, maxAmmo);
+    const ammoReward = difficulty === "hard" ? 5 : 3; // 5 balas en difícil, 3 en otros
+    ammo = Math.min(ammo + ammoReward, maxAmmo);
     playerTempImage = difficulty === "easy" ? "powerup_success_easy" : "jaure_feliz";
     colorChangeTimeout = Date.now() + 1000;
+    if (!useTextures) {
+      playerFlash = { color: "green", timeout: Date.now() + 1000 };
+    }
   } else {
-    lives -= 1;
+    lives = Math.max(0, lives - 1);
     playerTempImage = "jaure_enojado";
     colorChangeTimeout = Date.now() + 1000;
-    if (lives < prevLives && !flashTimeout) {
-      flashTimeout = Date.now() + 1000;
-      flashColor = "red";
+    if (!useTextures) {
+      playerFlash = { color: "red", timeout: Date.now() + 1000 };
     }
   }
   powerUps = [];
@@ -359,7 +378,6 @@ powerUpBtn.addEventListener("touchstart", () => {
 const menu = document.getElementById("menu");
 const keyMenu = document.getElementById("keyMenu");
 const creditsMenu = document.getElementById("creditsMenu");
-const highScoreDisplay = document.getElementById("highScore");
 const pauseMenu = document.createElement("div");
 pauseMenu.id = "pauseMenu";
 pauseMenu.className = "menu";
@@ -373,7 +391,7 @@ pauseMenu.innerHTML = `
 `;
 document.body.appendChild(pauseMenu);
 
-const gameOverMenu = document.getElementById("gameOverMenu");
+const recordsMenu = document.getElementById("recordsMenu");
 
 document.getElementById("startBtn").onclick = () => { resetGame(); showGame(); };
 document.getElementById("changeKeysBtn").onclick = () => showKeyMenu();
@@ -383,10 +401,40 @@ document.getElementById("creditsBtn").onclick = () => {
   creditsMenu.style.display = 'block';
   playMusic();
 };
+document.getElementById("recordsBtn").onclick = () => {
+  gameState = "records";
+  menu.style.display = 'none';
+  recordsMenu.style.display = 'block';
+  updateRecordsList();
+  playMusic();
+};
 document.getElementById("backToMenuBtn").onclick = () => showMenu();
 document.getElementById("retryBtn").onclick = () => { resetGame(); showGame(); };
 document.getElementById("backMenuBtn").onclick = () => showMenu();
 document.getElementById("backFromCreditsBtn").onclick = () => showMenu();
+document.getElementById("backToMenuFromRecords").onclick = () => showMenu();
+document.getElementById("deleteAllRecordsBtn").onclick = () => {
+  if (confirm("¿Estás seguro de que quieres borrar todos los récords?")) {
+    records = [];
+    localStorage.setItem("records", JSON.stringify(records));
+    updateRecordsList();
+  }
+};
+document.getElementById("resetKeysBtn").onclick = () => {
+  if (confirm("¿Estás seguro de que quieres resetear los controles a los valores predeterminados?")) {
+    keyBindings = { ...defaultKeys };
+    localStorage.setItem("keyBindings", JSON.stringify(keyBindings));
+    updateKeyButtons();
+  }
+};
+document.getElementById("textureToggleBtn").onclick = () => {
+  useTextures = !useTextures;
+  localStorage.setItem("useTextures", JSON.stringify(useTextures));
+  document.getElementById("textureToggleBtn").textContent = `Texturas: ${useTextures ? "Sí" : "No"}`;
+  // Reajustar posición del jugador al cambiar texturas
+  player.x = canvas.width / 2 - (useTextures ? player.w : playerCube.w) / 2;
+  player.y = canvas.height - (useTextures ? player.h : playerCube.h) - 40;
+};
 pauseMenu.querySelector("#continueBtn").onclick = () => {
   gameState = "game";
   pauseMenu.style.display = "none";
@@ -429,6 +477,34 @@ function updateKeyButtons() {
   document.getElementById("leftKeyBtn").textContent = "Izquierda: " + (keyBindings.left === " " ? "Espacio" : keyBindings.left);
   document.getElementById("rightKeyBtn").textContent = "Derecha: " + (keyBindings.right === " " ? "Espacio" : keyBindings.right);
   document.getElementById("shootKeyBtn").textContent = "Disparo: " + (keyBindings.shoot === " " ? "Espacio" : keyBindings.shoot);
+  document.getElementById("textureToggleBtn").textContent = `Texturas: ${useTextures ? "Sí" : "No"}`;
+}
+
+function updateRecordsList() {
+  const list = document.getElementById("recordsList");
+  list.innerHTML = "";
+  records.sort((a, b) => b.score - a.score);
+  records.forEach((r, index) => {
+    const recordDiv = document.createElement("div");
+    recordDiv.style.display = "flex";
+    recordDiv.style.alignItems = "center";
+    recordDiv.style.marginBottom = "10px";
+    const p = document.createElement("p");
+    p.textContent = `${r.name} - ${levelNames[r.difficulty]}: ${r.score}`;
+    p.style.marginRight = "10px";
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Borrar";
+    deleteBtn.onclick = () => {
+      if (confirm(`¿Estás seguro de que quieres borrar el récord de ${r.name}?`)) {
+        records.splice(index, 1);
+        localStorage.setItem("records", JSON.stringify(records));
+        updateRecordsList();
+      }
+    };
+    recordDiv.appendChild(p);
+    recordDiv.appendChild(deleteBtn);
+    list.appendChild(recordDiv);
+  });
 }
 
 function showMenu() {
@@ -436,15 +512,15 @@ function showMenu() {
   menu.style.display = 'block';
   keyMenu.style.display = 'none';
   creditsMenu.style.display = 'none';
+  recordsMenu.style.display = 'none';
   pauseMenu.style.display = 'none';
   gameOverMenu.style.display = 'none';
-  highScoreDisplay.textContent = `Récord Personal de Kills: ${highScore}`;
   document.getElementById("difficultySelect").value = difficulty;
   playMusic();
 }
 
 function showKeyMenu() {
-  gameState = "keybinds";
+  gameState = "settings";
   menu.style.display = 'none';
   keyMenu.style.display = 'block';
   updateKeyButtons();
@@ -456,6 +532,7 @@ function showGame() {
   menu.style.display = 'none';
   keyMenu.style.display = 'none';
   creditsMenu.style.display = 'none';
+  recordsMenu.style.display = 'none';
   pauseMenu.style.display = 'none';
   gameOverMenu.style.display = 'none';
   playMusic(true);
@@ -474,16 +551,25 @@ function showGameOverMenu() {
   gameOverMenu.style.display = 'block';
   document.getElementById("finalStats").textContent = `Vidas: ${lives} | Balas: ${ammo} | Kills: ${kills}`;
   playMusic(true);
+
+  // Solicitar nombre para guardar récord solo si kills > 0
+  if (kills > 0) {
+    let name = prompt("felicidades? creo... nose guarda tu nombre:");
+    if (name) {
+      records.push({ name, difficulty, score: kills });
+      localStorage.setItem("records", JSON.stringify(records));
+    }
+  }
 }
 
 function resetGame() {
-  player.x = canvas.width / 2 - 40;
-  player.y = canvas.height - 120;
+  player.x = canvas.width / 2 - (useTextures ? player.w : playerCube.w) / 2;
+  player.y = canvas.height - (useTextures ? player.h : playerCube.h) - 40;
   bullets = [];
   enemies = [];
   powerUps = [];
   kills = 0;
-  lives = 3;
+  lives = 3; // Siempre empezar con 3 vidas
   ammo = 10;
   activePower = null;
   powerTimeout = null;
@@ -494,14 +580,18 @@ function resetGame() {
   playerTempImage = null;
   flashTimeout = null;
   flashColor = null;
+  playerFlash = null;
   deathTimeout = null;
+  shootStartTime = null; // Reiniciar tiempo de disparo
+  lastShotTime = null; // Reiniciar tiempo del último disparo
   powerUpBtn.style.display = "none";
 }
 
 function shoot() {
   if (ammo > 0) {
-    bullets.push({ x: player.x + player.w / 2 - 8, y: player.y, w: 16, h: 16, speed: 7 });
+    bullets.push({ x: player.x + (useTextures ? player.w : playerCube.w) / 2 - 8, y: player.y, w: 16, h: 16, speed: 7 });
     ammo--;
+    lastShotTime = Date.now(); // Actualizar tiempo del último disparo
   }
 }
 
@@ -515,8 +605,8 @@ function spawnEnemy() {
 
   const stats = enemyStats[difficulty][type];
   enemies.push({
-    x: Math.random() * (canvas.width - 60),
-    y: -60,
+    x: Math.random() * (canvas.width - (useTextures ? 60 : enemyCube.w)),
+    y: -(useTextures ? 60 : enemyCube.h),
     w: 60,
     h: 60,
     speed: type === "purple" ? 1 : 2,
@@ -545,8 +635,8 @@ function handlePowerUps() {
   powerUps.forEach((p, i) => {
     p.y += p.speed;
     if (p.active &&
-        player.x < p.x + p.w && player.x + player.w > p.x &&
-        player.y < p.y + p.h && player.y + player.h > p.y) {
+        player.x < p.x + p.w && player.x + (useTextures ? player.w : playerCube.w) > p.x &&
+        player.y < p.y + p.h && player.y + (useTextures ? player.h : playerCube.h) > p.y) {
       activePower = p;
       p.active = false;
       powerTimeout = Date.now() + 1500;
@@ -557,19 +647,18 @@ function handlePowerUps() {
     if (!p.active && Date.now() > powerTimeout || p.y >= canvas.height) {
       if (!p.active && !powerHandled && hasCollidedWithPowerUp) {
         const prevLives = lives;
-        lives -= 1;
+        lives = Math.max(0, lives - 1);
         playerTempImage = "jaure_enojado";
         colorChangeTimeout = Date.now() + 1000;
-        if (lives < prevLives && !flashTimeout) {
-          flashTimeout = Date.now() + 1000;
-          flashColor = "red";
+        if (!useTextures) {
+          playerFlash = { color: "red", timeout: Date.now() + 1000 };
         }
+        powerUps.splice(i, 1);
+        activePower = null;
+        powerHandled = true;
+        hasCollidedWithPowerUp = false;
+        powerUpBtn.style.display = "none";
       }
-      powerUps.splice(i, 1);
-      activePower = null;
-      powerHandled = true;
-      hasCollidedWithPowerUp = false;
-      powerUpBtn.style.display = "none";
     }
   });
 
@@ -581,17 +670,20 @@ function handlePowerUps() {
       const prevLives = lives;
       if (e.key.toUpperCase() === activePower.key) {
         console.log("Power-up acertado!");
-        ammo = Math.min(ammo + 3, maxAmmo);
+        const ammoReward = difficulty === "hard" ? 5 : 3; // 5 balas en difícil, 3 en otros
+        ammo = Math.min(ammo + ammoReward, maxAmmo);
         playerTempImage = difficulty === "easy" ? "powerup_success_easy" : "jaure_feliz";
         colorChangeTimeout = Date.now() + 1000;
-      } else if (e.key !== "Escape") {
+        if (!useTextures) {
+          playerFlash = { color: "green", timeout: Date.now() + 1000 };
+        }
+      } else if (e.key !== "Escape" && e.key !== keyBindings.shoot && e.key !== keyBindings.left && e.key !== keyBindings.right) {
         console.log("Power-up fallado!");
-        lives -= 1;
+        lives = Math.max(0, lives - 1);
         playerTempImage = "jaure_enojado";
         colorChangeTimeout = Date.now() + 1000;
-        if (lives < prevLives && !flashTimeout) {
-          flashTimeout = Date.now() + 1000;
-          flashColor = "red";
+        if (!useTextures) {
+          playerFlash = { color: "red", timeout: Date.now() + 1000 };
         }
       }
       powerUps = [];
@@ -605,12 +697,11 @@ function handlePowerUps() {
     if (hasCollidedWithPowerUp) {
       console.log("Power-up expirado sin acción");
       const prevLives = lives;
-      lives -= 1;
+      lives = Math.max(0, lives - 1);
       playerTempImage = "jaure_enojado";
       colorChangeTimeout = Date.now() + 1000;
-      if (lives < prevLives && !flashTimeout) {
-        flashTimeout = Date.now() + 1000;
-        flashColor = "red";
+      if (!useTextures) {
+        playerFlash = { color: "red", timeout: Date.now() + 1000 };
       }
     }
     powerUps = [];
@@ -625,8 +716,19 @@ function updateGame() {
   if (gameState !== "game") return;
 
   if (keys[keyBindings.left] && player.x > 0) player.x -= player.speed;
-  if (keys[keyBindings.right] && player.x + player.w < canvas.width) player.x += player.speed;
-  if (keys[keyBindings.shoot]) { shoot(); keys[keyBindings.shoot] = false; }
+  if (keys[keyBindings.right] && player.x + (useTextures ? player.w : playerCube.w) < canvas.width) player.x += player.speed;
+  
+  // Manejo del disparo continuo
+  if (keys[keyBindings.shoot] && ammo > 0) {
+    const now = Date.now();
+    // Disparar inmediatamente al presionar o después de 1 segundo para disparo continuo
+    if (shootStartTime && (now - shootStartTime >= 0)) {
+      // Disparo continuo con cadencia de 300ms
+      if (!lastShotTime || (now - lastShotTime >= 100)) {
+        shoot();
+      }
+    }
+  }
 
   bullets.forEach(b => b.y -= b.speed);
   bullets = bullets.filter(b => b.y > 0);
@@ -635,7 +737,7 @@ function updateGame() {
     en.y += en.speed;
     if (en.type === "purple") {
       en.x += en.sideSpeed * en.direction;
-      if (en.x <= 0 || en.x + en.w >= canvas.width) en.direction *= -1;
+      if (en.x <= 0 || en.x + (useTextures ? en.w : enemyCube.w) >= canvas.width) en.direction *= -1;
     }
   });
 
@@ -661,25 +763,23 @@ function updateGame() {
   let bulletsToRemove = new Set();
   bullets.forEach((b, bi) => {
     enemies.forEach((en, ei) => {
-      if (b.x < en.x + en.w && b.x + b.w > en.x && b.y < en.y + en.h && b.y + b.h > en.y) {
+      const enWidth = useTextures ? en.w : enemyCube.w;
+      const enHeight = useTextures ? en.h : enemyCube.h;
+      if (b.x < en.x + enWidth && b.x + b.w > en.x && b.y < en.y + enHeight && b.y + b.h > en.y) {
         en.hp--;
         bulletsToRemove.add(bi);
         if (en.hp <= 0) {
           const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
-          lives += en.livesGained;
+          lives = Math.min(lives + en.livesGained, maxLives[difficulty]); // Respetar límite de vidas
           if (en.type === "brown") { enemies.splice(ei, 1); return; }
           enemies.splice(ei, 1);
           kills++;
           ammo = Math.min(ammo + en.ammoReward, maxAmmo);
-          if (kills > highScore) {
-            highScore = kills;
-            localStorage.setItem("highScore", highScore);
-          }
           if (kills === 22 && Math.random() < 0.02) {
             const stats = enemyStats[difficulty].brown;
             enemies.push({
-              x: Math.random() * (canvas.width - 60),
-              y: -60,
+              x: Math.random() * (canvas.width - (useTextures ? 60 : enemyCube.w)),
+              y: -(useTextures ? 60 : enemyCube.h),
               w: 60,
               h: 60,
               speed: 2,
@@ -705,6 +805,10 @@ function updateGame() {
     colorChangeTimeout = null;
   }
 
+  if (playerFlash && Date.now() > playerFlash.timeout) {
+    playerFlash = null;
+  }
+
   if (lives <= 0) {
     gameState = "dead";
     playerTempImage = "jaure_muerto";
@@ -717,14 +821,21 @@ function updateGame() {
 function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const backgroundImage = images[`background_${difficulty}`];
-  if (backgroundImage && backgroundImage.complete) {
-    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+  // Fondo
+  if (useTextures) {
+    const backgroundImage = images[`background_${difficulty}`];
+    if (backgroundImage && backgroundImage.complete) {
+      ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
   } else {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
+  // Mensaje de assets fallidos
   if ((failedImages.length > 0 || failedSounds.length > 0) && imagesLoaded + soundsLoaded === totalAssets) {
     ctx.fillStyle = "red";
     ctx.font = "20px Arial";
@@ -738,6 +849,7 @@ function drawGame() {
     }
   }
 
+  // Efecto de flash de pantalla completa
   if (flashTimeout && Date.now() < flashTimeout) {
     ctx.fillStyle = flashColor === "red" ? "rgba(255, 0, 0, 0.5)" : "rgba(139, 69, 19, 0.5)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -746,21 +858,33 @@ function drawGame() {
     flashColor = null;
   }
 
-  let playerImage = images[`player_${difficulty}`];
-  if (gameState === "dead" && images.jaure_muerto?.complete) {
-    playerImage = images.jaure_muerto;
-  } else if (playerTempImage && images[playerTempImage]?.complete) {
-    playerImage = images[playerTempImage];
-  }
-  if (playerImage && playerImage.complete) {
-    ctx.drawImage(playerImage, player.x, player.y, player.w, player.h);
+  // Jugador
+  if (useTextures) {
+    let playerImage = images[`player_${difficulty}`];
+    if (gameState === "dead" && images.jaure_muerto?.complete) {
+      playerImage = images.jaure_muerto;
+    } else if (playerTempImage && images[playerTempImage]?.complete) {
+      playerImage = images[playerTempImage];
+    }
+    if (playerImage && playerImage.complete) {
+      ctx.drawImage(playerImage, player.x, player.y, player.w, player.h);
+    } else {
+      ctx.fillStyle = gameState === "dead" ? "blue" : "yellow";
+      ctx.fillRect(player.x, player.y, player.w, player.h);
+    }
   } else {
     ctx.fillStyle = gameState === "dead" ? "blue" : "yellow";
-    ctx.fillRect(player.x, player.y, player.w, player.h);
+    ctx.fillRect(player.x, player.y, playerCube.w, playerCube.h);
+    // Flash del jugador solo en modo cubo
+    if (playerFlash && Date.now() < playerFlash.timeout) {
+      ctx.fillStyle = playerFlash.color === "green" ? "rgba(0, 255, 0, 0.5)" : "rgba(255, 0, 0, 0.5)";
+      ctx.fillRect(player.x, player.y, playerCube.w, playerCube.h);
+    }
   }
 
+  // Balas
   bullets.forEach(b => {
-    if (images.bullet.complete) {
+    if (useTextures && images.bullet.complete) {
       ctx.drawImage(images.bullet, b.x, b.y, b.w, b.h);
     } else {
       ctx.fillStyle = "white";
@@ -768,19 +892,27 @@ function drawGame() {
     }
   });
 
+  // Enemigos
   enemies.forEach(en => {
-    const enemyImageKey = en.type === "brown" ? "brown" : `${en.type}_${difficulty}`;
-    const enemyImage = images[enemyImageKey];
-    if (enemyImage && enemyImage.complete) {
-      ctx.drawImage(enemyImage, en.x, en.y, en.w, en.h);
+    const enWidth = useTextures ? en.w : enemyCube.w;
+    const enHeight = useTextures ? en.h : enemyCube.h;
+    if (useTextures) {
+      const enemyImageKey = en.type === "brown" ? "brown" : `${en.type}_${difficulty}`;
+      const enemyImage = images[enemyImageKey];
+      if (enemyImage && enemyImage.complete) {
+        ctx.drawImage(enemyImage, en.x, en.y, en.w, en.h);
+      } else {
+        ctx.fillStyle = en.type;
+        ctx.fillRect(en.x, en.y, en.w, en.h);
+      }
     } else {
       ctx.fillStyle = en.type;
-      ctx.fillRect(en.x, en.y, en.w, en.h);
+      ctx.fillRect(en.x, en.y, enemyCube.w, enemyCube.h);
     }
 
     if (en.hp > 0) {
       const healthRatio = en.hp / en.maxHp;
-      const barWidth = en.w * healthRatio;
+      const barWidth = (useTextures ? en.w : enemyCube.w) * healthRatio;
       const barHeight = 5;
       const barX = en.x;
       const barY = en.y - 10;
@@ -791,17 +923,26 @@ function drawGame() {
     }
   });
 
+  // Power-ups
   powerUps.forEach(p => {
-    const powerupImage = images[`powerup_${difficulty}`];
-    if (powerupImage && powerupImage.complete) {
-      ctx.drawImage(powerupImage, p.x, p.y, p.w, p.h);
+    if (useTextures) {
+      const powerupImage = images[`powerup_${difficulty}`];
+      if (powerupImage && powerupImage.complete) {
+        ctx.drawImage(powerupImage, p.x, p.y, p.w, p.h);
+      } else {
+        ctx.fillStyle = "cyan";
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+      }
     } else {
       ctx.fillStyle = "cyan";
       ctx.fillRect(p.x, p.y, p.w, p.h);
     }
-    ctx.fillStyle = "white";
     ctx.font = "16px Arial";
-    ctx.fillText(p.key, p.x + 14, p.y + 34);
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "black"; // Borde negro
+    ctx.lineWidth = 2; // Ancho del borde
+    ctx.strokeText(p.key, p.x + 14, p.y + 34); // Dibujar borde
+    ctx.fillText(p.key, p.x + 14, p.y + 34); // Dibujar texto
   });
 
   // HUD
@@ -819,9 +960,19 @@ function drawGame() {
   // Botón de mute
   ctx.fillStyle = "rgba(255, 255, 255, 0.5)"; // Fondo blanco semitransparente
   ctx.fillRect(muteButton.x - 2, muteButton.y - 2, muteButton.w + 4, muteButton.h + 4);
-  const muteImage = isMuted ? images.unmute : images.mute;
-  if (muteImage && muteImage.complete) {
-    ctx.drawImage(muteImage, muteButton.x, muteButton.y, muteButton.w, muteButton.h);
+  if (useTextures) {
+    const muteImage = isMuted ? images.unmute : images.mute;
+    if (muteImage && muteImage.complete) {
+      ctx.drawImage(muteImage, muteButton.x, muteButton.y, muteButton.w, muteButton.h);
+    } else {
+      ctx.fillStyle = "gray";
+      ctx.fillRect(muteButton.x, muteButton.y, muteButton.w, muteButton.h);
+      ctx.fillStyle = "white";
+      ctx.font = "16px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(isMuted ? "🔇" : "🔊", muteButton.x + muteButton.w / 2, muteButton.y + muteButton.h / 2 + 6);
+      ctx.textAlign = "left";
+    }
   } else {
     ctx.fillStyle = "gray";
     ctx.fillRect(muteButton.x, muteButton.y, muteButton.w, muteButton.h);
@@ -836,7 +987,7 @@ function drawGame() {
   if (gameState === "game") {
     ctx.fillStyle = "rgba(255, 255, 255, 0.5)"; // Fondo blanco semitransparente
     ctx.fillRect(pauseButton.x - 2, pauseButton.y - 2, pauseButton.w + 4, pauseButton.h + 4);
-    if (images.pause && images.pause.complete) {
+    if (useTextures && images.pause && images.pause.complete) {
       ctx.drawImage(images.pause, pauseButton.x, pauseButton.y, pauseButton.w, pauseButton.h);
     } else {
       ctx.fillStyle = "gray";
