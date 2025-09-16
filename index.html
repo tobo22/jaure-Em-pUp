@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>jaure'Em pUp</title>
+  <title>Jaure'Em pUp</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="estilo.css">
 </head>
 <body>
-  <canvas id="gameCanvas" width="600" height="300"></canvas>
+  <canvas id="gameCanvas" width="30" height="10"></canvas>
+  <button id="muteBtn">Mute</button>
 
   <!-- Controles móviles -->
   <div class="controls">
@@ -22,7 +23,7 @@
 
   <!-- Menú principal -->
   <div id="menu" class="menu" style="display:block;">
-    <h1>jaure'Em pUp</h1>
+    <h1>Jaure'Em pUp</h1>
     <p id="highScore" style="color: yellow;"></p>
     <button id="startBtn">Iniciar</button>
     <select id="difficultySelect">
@@ -32,7 +33,6 @@
     </select>
     <button id="changeKeysBtn">Cambiar teclas</button>
     <button id="creditsBtn">Créditos</button>
-    <div id="credits" style="display:none; margin-top:10px;">(Vacío por ahora)</div>
   </div>
 
   <!-- Submenú de teclas -->
@@ -45,6 +45,16 @@
     <button id="backToMenuBtn">Volver</button>
   </div>
 
+  <!-- Submenú de créditos -->
+  <div id="creditsMenu" class="menu" style="display:none;">
+    <h2>Créditos</h2>
+    <p>Programador: Tobias 'Tobo' Infante</p>
+    <p>Diseño web: Joaquin 'Nehuen' Jara</p>
+    <p>Sprites: Camilo 'Calmas' Paraje</p>
+    <p>Derechos de imagen: Bautista 'Jaure' Giberry</p>
+    <button id="backFromCreditsBtn">Volver</button>
+  </div>
+
   <!-- Menú de Game Over -->
   <div id="gameOverMenu" class="menu">
     <h2>GAME OVER</h2>
@@ -53,24 +63,24 @@
     <button id="backMenuBtn">Volver al menú</button>
   </div>
 
-  <!-- data para jara -->
-   <div>
-    <h1>data bien simple para jara</h1>
-    <h2>nivel agua (facil)</h2>
-    <p>rojo: 1 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extras</p>
-    <p>azul: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 4 balas y 1 vidas extras</p>
-    <p>violeta: 3 de vida, si pasa te saca 5 de vida, si lo matas te da 5 balas y 2 vidas extras</p>
+  <!-- Datos para Jara -->
+  <div id="jaraData">
+    <h1>Datos para Jara</h1>
+    <h2>Nivel Agua (Fácil)</h2>
+    <p>Rojo: 1 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extra</p>
+    <p>Azul: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 4 balas y 1 vida extra</p>
+    <p>Violeta: 3 de vida, si pasa te saca 5 de vida, si lo matas te da 5 balas y 2 vidas extra</p>
     <br>
-    <h2>nivel cafe (intermedio)</h2>
-    <p>rojo: 2 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extras</p>
-    <p>azul: 5 de vida, si pasa te saca 3 de vida, si lo matas te da 5 balas y 1 vidas extras</p>
-    <p>violeta: 5 de vida, si pasa te saca 5 de vida, si lo matas te da 7 balas y 2 vidas extras</p>
+    <h2>Nivel Café (Medio)</h2>
+    <p>Rojo: 2 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extra</p>
+    <p>Azul: 5 de vida, si pasa te saca 3 de vida, si lo matas te da 5 balas y 1 vida extra</p>
+    <p>Violeta: 5 de vida, si pasa te saca 5 de vida, si lo matas te da 7 balas y 2 vidas extra</p>
     <br>
-    <h2>nivel alcohol (dificil)</h2>
-    <p>rojo: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 3 balas y 0 vidas extras</p>
-    <p>azul: 6 de vida, si pasa te saca 6 de vida, si lo matas te da 5 balas y 1 vidas extras</p>
-    <p>violeta: 8 de vida, si pasa te saca 7 de vida, si lo matas te da 10 balas y 2 vidas extras</p>
-   </div>
+    <h2>Nivel Alcohol (Difícil)</h2>
+    <p>Rojo: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 3 balas y 0 vidas extra</p>
+    <p>Azul: 6 de vida, si pasa te saca 5 de vida, si lo matas te da 6 balas y 1 vida extra</p>
+    <p>Violeta: 8 de vida, si pasa te saca 7 de vida, si lo matas te da 10 balas y 2 vidas extra</p>
+  </div>
 
   <script src="game.js"></script>
 </body>

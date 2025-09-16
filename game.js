@@ -1,5 +1,5 @@
 // Estados y variables globales
-let gameState = "menu"; // menu, keybinds, game, paused, dead, gameover
+let gameState = "menu"; // menu, keybinds, credits, game, paused, dead, gameover
 let player = { x: 0, y: 0, w: 80, h: 80, speed: 5 }; // Jugador 80x80
 let bullets = [];
 let enemies = [];
@@ -12,7 +12,8 @@ let powerTimeout = null;
 let powerHandled = false;
 let hasCollidedWithPowerUp = false;
 let colorChangeTimeout = null;
-let playerColor = "yellow"; // yellow, red, green, sad
+let playerColor = "yellow"; // yellow, sad (solo para placeholder si falta jaure_muerto.png)
+let playerTempImage = null; // null, "powerup_success_easy", "jaure_feliz", "jaure_enojado", "jaure_muerto"
 let flashTimeout = null;
 let flashColor = null; // "red" o "brown"
 let keys = {};
@@ -21,6 +22,13 @@ let keyBindings = JSON.parse(localStorage.getItem("keyBindings")) || defaultKeys
 let highScore = parseInt(localStorage.getItem("highScore")) || 0;
 let difficulty = localStorage.getItem("difficulty") || "easy"; // Por defecto: fácil
 let deathTimeout = null; // Temporizador para el estado dead
+let failedImages = []; // Rastrear imágenes fallidas
+let failedSounds = []; // Rastrear audios fallidos
+let lastFrameTime = performance.now(); // Para calcular FPS
+let fps = 0; // FPS actual
+let currentSound = null; // Audio actual en reproducción
+let lastPlayedSound = null; // Última canción reproducida para comparar al reanudar
+let isMuted = false; // Estado de mute
 
 // Canvas
 const canvas = document.getElementById("gameCanvas");
@@ -31,55 +39,161 @@ const images = {
   background_easy: new Image(),
   background_medium: new Image(),
   background_hard: new Image(),
-  player_yellow: new Image(),
-  player_red: new Image(),
-  player_green: new Image(),
-  player_sad: new Image(),
-  enemy_red: new Image(),
-  enemy_blue: new Image(),
-  enemy_purple: new Image(),
-  enemy_brown: new Image(),
-  powerup: new Image(),
+  player_easy: new Image(),
+  player_medium: new Image(),
+  player_hard: new Image(),
+  red_easy: new Image(),
+  red_medium: new Image(),
+  red_hard: new Image(),
+  blue_easy: new Image(),
+  blue_medium: new Image(),
+  blue_hard: new Image(),
+  purple_easy: new Image(),
+  purple_medium: new Image(),
+  purple_hard: new Image(),
+  brown: new Image(),
+  powerup_easy: new Image(),
+  powerup_medium: new Image(),
+  powerup_hard: new Image(),
+  powerup_success_easy: new Image(), // Para jaure amor.png
+  jaure_feliz: new Image(),
+  jaure_enojado: new Image(),
+  jaure_muerto: new Image(),
   bullet: new Image()
 };
 images.background_easy.src = 'easy.png';
 images.background_medium.src = 'inter.png';
 images.background_hard.src = 'hard.png';
-images.player_yellow.src = 'bauti pelotudo.png';
-images.player_red.src = 'bauti enojado.png';
-images.player_green.src = 'bauti feliz.png';
-images.player_sad.src = 'bauti triste.png';
-images.enemy_red.src = 'ratata.png';
-images.enemy_blue.src = 'raticate.png';
-images.enemy_purple.src = 'reigenoseque (violeta).png';
-images.enemy_brown.src = 'orgullo peruano.png';
-images.powerup.src = 'dito(green).png';
+images.player_easy.src = 'bauti pelotudo.png';
+images.player_medium.src = 'bauti pelotudo.png';
+images.player_hard.src = 'bauti pelotudo.png';
+images.red_easy.src = 'spike.png';
+images.red_medium.src = 'ratata.png';
+images.red_hard.src = 'caballero.png';
+images.blue_easy.src = 'jet.png';
+images.blue_medium.src = 'raticate.png';
+images.blue_hard.src = 'hollow knight.png';
+images.purple_easy.src = 'ein.png';
+images.purple_medium.src = 'rapido.png';
+images.purple_hard.src = 'hornet.png';
+images.brown.src = 'orgullo peruano.png';
+images.powerup_easy.src = 'marronaza.png';
+images.powerup_medium.src = 'dito.png';
+images.powerup_hard.src = 'nuu.png';
+images.powerup_success_easy.src = 'jaure amor.png';
+images.jaure_feliz.src = 'jaure feliz.png';
+images.jaure_enojado.src = 'jaure enojado.png';
+images.jaure_muerto.src = 'jaure muerto.png';
 images.bullet.src = 'pokebola.png';
 
-// Asegurar que todas las imágenes estén cargadas o fallen antes de empezar
+// Precarga de sonidos
+const sounds = {
+  menu_song: new Audio(),
+  gameover_song: new Audio(),
+  easy_song: new Audio(),
+  medium_song: new Audio(),
+  hard_song: new Audio()
+};
+sounds.menu_song.src = 'menu song.mp3';
+sounds.gameover_song.src = 'gameover song.mp3';
+sounds.easy_song.src = 'easy song.mp3';
+sounds.medium_song.src = 'medium song.mp3';
+sounds.hard_song.src = 'hard song.mp3';
+
+// Asegurar que todas las imágenes y sonidos estén cargados o fallen antes de empezar
 let imagesLoaded = 0;
+let soundsLoaded = 0;
 const totalImages = Object.keys(images).length;
+const totalSounds = Object.keys(sounds).length;
+const totalAssets = totalImages + totalSounds;
+
 for (let key in images) {
   images[key].onload = () => {
     imagesLoaded++;
-    if (imagesLoaded === totalImages) {
-      loop(); // Iniciar el juego cuando todas las imágenes estén cargadas
+    if (imagesLoaded + soundsLoaded === totalAssets) {
+      playMusic(true); // Iniciar música del menú al cargar
+      loop(); // Iniciar el juego
     }
   };
   images[key].onerror = () => {
     console.error(`Error cargando imagen: ${images[key].src}`);
-    imagesLoaded++; // Contar como cargada aunque falle
-    if (imagesLoaded === totalImages) {
+    failedImages.push(images[key].src); // Rastrear imagen fallida
+    imagesLoaded++;
+    if (imagesLoaded + soundsLoaded === totalAssets) {
+      playMusic(true); // Iniciar música del menú al cargar
       loop(); // Iniciar el juego
     }
   };
 }
 
+for (let key in sounds) {
+  sounds[key].oncanplaythrough = () => {
+    sounds[key].loop = true; // Configurar bucle para todos los sonidos
+    soundsLoaded++;
+    if (imagesLoaded + soundsLoaded === totalAssets) {
+      playMusic(true); // Iniciar música del menú al cargar
+      loop(); // Iniciar el juego
+    }
+  };
+  sounds[key].onerror = () => {
+    console.error(`Error cargando audio: ${sounds[key].src}`);
+    failedSounds.push(sounds[key].src); // Rastrear audio fallido
+    soundsLoaded++;
+    if (imagesLoaded + soundsLoaded === totalAssets) {
+      playMusic(true); // Iniciar música del menú al cargar
+      loop(); // Iniciar el juego
+    }
+  };
+}
+
+// Botón de mute
+const muteBtn = document.getElementById("muteBtn");
+muteBtn.addEventListener("click", () => {
+  isMuted = !isMuted;
+  muteBtn.textContent = isMuted ? "Unmute" : "Mute";
+  if (isMuted) {
+    if (currentSound) currentSound.pause();
+  } else {
+    if (currentSound) currentSound.play().catch(e => console.error(`Error reproduciendo ${currentSound.src}:`, e));
+  }
+});
+
+// Función para reproducir música según el estado
+function playMusic(shouldResetMusic = false) {
+  // Determinar la canción esperada según el estado
+  let expectedSound = null;
+  if (gameState === "menu" || gameState === "keybinds" || gameState === "credits") {
+    expectedSound = sounds.menu_song;
+  } else if (gameState === "gameover" || gameState === "dead") {
+    expectedSound = sounds.gameover_song;
+  } else if (gameState === "game" || gameState === "paused") {
+    expectedSound = sounds[`${difficulty}_song`];
+  }
+
+  // Pausar la música actual si es diferente o si se fuerza reinicio
+  if (currentSound && (currentSound !== expectedSound || shouldResetMusic)) {
+    currentSound.pause();
+    currentSound.currentTime = 0;
+    currentSound = null;
+  }
+
+  // Actualizar currentSound si cambió
+  if (expectedSound && currentSound !== expectedSound) {
+    currentSound = expectedSound;
+    lastPlayedSound = expectedSound; // Guardar para reanudar desde pausa
+  }
+
+  // Reproducir la música si no está en pausa y no está mute
+  if (currentSound && gameState !== "paused" && !isMuted) {
+    currentSound.play().catch(e => console.error(`Error reproduciendo ${currentSound.src}:`, e));
+  }
+}
+
 // Nombres de los niveles
 const levelNames = {
-  easy: "Nivel Agua",
-  medium: "Nivel Café",
-  hard: "Nivel Alcohol"
+  easy: "Nivel Agua (facil)",
+  medium: "Nivel Café (medio)",
+  hard: "Nivel Alcohol (dificil)"
 };
 
 // Estadísticas de enemigos por dificultad
@@ -112,8 +226,8 @@ function resizeCanvas() {
     player.y = canvas.height - 120; // Ajustado para h = 80
     player.x = Math.min(player.x, canvas.width - player.w); // Asegurar que no salga del canvas
   } else {
-    canvas.width = 800;
-    canvas.height = 800;
+    canvas.width = 600;
+    canvas.height = 600;
   }
   // Inicializar posición del jugador
   player.x = canvas.width / 2 - 40; // Ajustado para w = 80
@@ -125,6 +239,7 @@ resizeCanvas();
 
 // Input
 document.addEventListener("keydown", e => {
+  e.preventDefault(); // Evitar comportamientos no deseados
   keys[e.key] = true;
   if (gameState === "game" && e.key === "Escape") {
     gameState = "paused";
@@ -132,9 +247,15 @@ document.addEventListener("keydown", e => {
   } else if (gameState === "paused" && e.key === "Escape") {
     gameState = "game";
     pauseMenu.style.display = "none";
+    playMusic(); // Reanudar música sin reinicio
   }
 });
-document.addEventListener("keyup", e => keys[e.key] = false);
+document.addEventListener("keyup", e => {
+  keys[e.key] = false; // Asegurar que se limpia
+});
+window.addEventListener("blur", () => {
+  Object.keys(keys).forEach(key => keys[key] = false); // Limpiar teclas al perder foco
+});
 
 // Detectar móvil
 const isMobile = /Mobi|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
@@ -149,7 +270,9 @@ const shootBtn = document.getElementById("shoot");
 const powerUpBtn = document.getElementById("powerUp");
 
 leftBtn.addEventListener("touchstart", () => keys[keyBindings.left] = true);
-leftBtn.addEventListener("touchend", () => keys[keyBindings.left] = false);
+leftBtn.addEventListener("touchend", () => {
+  keys[keyBindings.left] = false; // Asegurar limpieza
+});
 rightBtn.addEventListener("touchstart", () => keys[keyBindings.right] = true);
 rightBtn.addEventListener("touchend", () => keys[keyBindings.right] = false);
 shootBtn.addEventListener("touchstart", () => { if (gameState === "game") shoot(); });
@@ -161,17 +284,16 @@ powerUpBtn.addEventListener("touchstart", () => {
   const prevLives = lives;
   if (hasCollidedWithPowerUp && activePower) {
     ammo = Math.min(ammo + 3, maxAmmo); // +3 balas si acierta
-    playerColor = "green"; // Cambiar a verde si acierta
-    colorChangeTimeout = Date.now() + 2000;
+    playerTempImage = difficulty === "easy" ? "powerup_success_easy" : "jaure_feliz"; // jaure amor.png en easy, jaure feliz.png en medium/hard
+    colorChangeTimeout = Date.now() + 1000; // 1 segundo
   } else {
     lives -= 1; // -1 vida si tocas sin colisionar
-    playerColor = "red"; // Cambiar a rojo si falla
-    colorChangeTimeout = Date.now() + 2000;
-  }
-  // Activar efecto de fondo rojo si se perdió vida
-  if (lives < prevLives && !flashTimeout) {
-    flashTimeout = Date.now() + 1000;
-    flashColor = "red";
+    playerTempImage = "jaure_enojado"; // Mostrar jaure enojado.png
+    colorChangeTimeout = Date.now() + 1000; // 1 segundo
+    if (lives < prevLives && !flashTimeout) {
+      flashTimeout = Date.now() + 1000;
+      flashColor = "red";
+    }
   }
   powerUps = [];
   activePower = null;
@@ -183,7 +305,7 @@ powerUpBtn.addEventListener("touchstart", () => {
 // --- MENÚS ---
 const menu = document.getElementById("menu");
 const keyMenu = document.getElementById("keyMenu");
-const credits = document.getElementById("credits");
+const creditsMenu = document.getElementById("creditsMenu");
 const highScoreDisplay = document.getElementById("highScore");
 const pauseMenu = document.createElement("div");
 pauseMenu.id = "pauseMenu";
@@ -203,13 +325,20 @@ const gameOverMenu = document.getElementById("gameOverMenu");
 // Botones
 document.getElementById("startBtn").onclick = () => { resetGame(); showGame(); };
 document.getElementById("changeKeysBtn").onclick = () => showKeyMenu();
-document.getElementById("creditsBtn").onclick = () => { credits.style.display = 'block'; };
+document.getElementById("creditsBtn").onclick = () => {
+  gameState = "credits";
+  menu.style.display = 'none';
+  creditsMenu.style.display = 'block';
+  playMusic(); // Mantener música del menú sin reinicio
+};
 document.getElementById("backToMenuBtn").onclick = () => showMenu();
 document.getElementById("retryBtn").onclick = () => { resetGame(); showGame(); };
 document.getElementById("backMenuBtn").onclick = () => showMenu();
+document.getElementById("backFromCreditsBtn").onclick = () => showMenu();
 pauseMenu.querySelector("#continueBtn").onclick = () => {
   gameState = "game";
   pauseMenu.style.display = "none";
+  playMusic(); // Reanudar música sin reinicio
 };
 pauseMenu.querySelector("#backToMainMenuBtn").onclick = () => showMenu();
 
@@ -217,6 +346,7 @@ pauseMenu.querySelector("#backToMainMenuBtn").onclick = () => showMenu();
 document.getElementById("difficultySelect").onchange = (e) => {
   difficulty = e.target.value;
   localStorage.setItem("difficulty", difficulty);
+  if (gameState === "game") playMusic(true); // Forzar reinicio si cambia dificultad en juego
 };
 
 // Cambiar teclas
@@ -231,7 +361,7 @@ function waitKey(action, button) {
   document.getElementById("keyPrompt").style.display = "block";
   button.textContent = "Presiona una tecla...";
   window.onkeydown = (e) => {
-    // Evitar que la misma tecla se asigne a múltiples acciones
+    e.preventDefault(); // Evitar comportamientos no deseados
     if (Object.values(keyBindings).includes(e.key) && keyBindings[action] !== e.key) {
       alert("¡Esa tecla ya está asignada!");
       return;
@@ -255,11 +385,12 @@ function showMenu() {
   gameState = "menu";
   menu.style.display = 'block';
   keyMenu.style.display = 'none';
-  credits.style.display = 'none';
+  creditsMenu.style.display = 'none';
   pauseMenu.style.display = 'none';
   gameOverMenu.style.display = 'none';
   highScoreDisplay.textContent = `Récord Personal de Kills: ${highScore}`; // Mostrar récord personal
   document.getElementById("difficultySelect").value = difficulty; // Restaurar dificultad seleccionada
+  playMusic(); // Mantener música del menú sin reinicio
 }
 
 function showKeyMenu() {
@@ -267,15 +398,17 @@ function showKeyMenu() {
   menu.style.display = 'none';
   keyMenu.style.display = 'block';
   updateKeyButtons();
+  playMusic(); // Mantener música del menú sin reinicio
 }
 
 function showGame() {
   gameState = "game";
   menu.style.display = 'none';
   keyMenu.style.display = 'none';
-  credits.style.display = 'none';
+  creditsMenu.style.display = 'none';
   pauseMenu.style.display = 'none';
   gameOverMenu.style.display = 'none';
+  playMusic(true); // Forzar reinicio al iniciar juego
 }
 
 function showPauseMenu() {
@@ -283,12 +416,14 @@ function showPauseMenu() {
   document.getElementById("pauseLives").textContent = lives;
   document.getElementById("pauseAmmo").textContent = ammo;
   document.getElementById("pauseKills").textContent = kills;
+  if (currentSound) currentSound.pause(); // Pausar música en pausa
 }
 
 function showGameOverMenu() {
   gameState = "gameover";
   gameOverMenu.style.display = 'block';
   document.getElementById("finalStats").textContent = `Vidas: ${lives} | Balas: ${ammo} | Kills: ${kills}`;
+  playMusic(true); // Forzar reinicio al entrar en game over
 }
 
 // --- RESET ---
@@ -306,7 +441,8 @@ function resetGame() {
   powerHandled = false;
   hasCollidedWithPowerUp = false;
   colorChangeTimeout = null;
-  playerColor = "yellow";
+  playerColor = "yellow"; // Resetear a yellow para placeholder
+  playerTempImage = null; // Resetear imagen temporal
   flashTimeout = null;
   flashColor = null;
   deathTimeout = null; // Resetear temporizador de muerte
@@ -377,8 +513,8 @@ function handlePowerUps() {
       if (!p.active && !powerHandled && hasCollidedWithPowerUp) {
         const prevLives = lives;
         lives -= 1;
-        playerColor = "red";
-        colorChangeTimeout = Date.now() + 2000;
+        playerTempImage = "jaure_enojado"; // Mostrar jaure enojado.png
+        colorChangeTimeout = Date.now() + 1000; // 1 segundo
         if (lives < prevLives && !flashTimeout) {
           flashTimeout = Date.now() + 1000;
           flashColor = "red";
@@ -401,17 +537,17 @@ function handlePowerUps() {
       if (e.key.toUpperCase() === activePower.key) {
         console.log("Power-up acertado!");
         ammo = Math.min(ammo + 3, maxAmmo);
-        playerColor = "green";
-        colorChangeTimeout = Date.now() + 2000;
+        playerTempImage = difficulty === "easy" ? "powerup_success_easy" : "jaure_feliz"; // jaure amor.png en easy, jaure feliz.png en medium/hard
+        colorChangeTimeout = Date.now() + 1000; // 1 segundo
       } else if (e.key !== "Escape") {
         console.log("Power-up fallado!");
         lives -= 1;
-        playerColor = "red";
-        colorChangeTimeout = Date.now() + 2000;
-      }
-      if (lives < prevLives && !flashTimeout) {
-        flashTimeout = Date.now() + 1000;
-        flashColor = "red";
+        playerTempImage = "jaure_enojado"; // Mostrar jaure enojado.png
+        colorChangeTimeout = Date.now() + 1000; // 1 segundo
+        if (lives < prevLives && !flashTimeout) {
+          flashTimeout = Date.now() + 1000;
+          flashColor = "red";
+        }
       }
       powerUps = [];
       activePower = null;
@@ -425,8 +561,8 @@ function handlePowerUps() {
       console.log("Power-up expirado sin acción");
       const prevLives = lives;
       lives -= 1;
-      playerColor = "red";
-      colorChangeTimeout = Date.now() + 2000;
+      playerTempImage = "jaure_enojado"; // Mostrar jaure enojado.png
+      colorChangeTimeout = Date.now() + 1000; // 1 segundo
       if (lives < prevLives && !flashTimeout) {
         flashTimeout = Date.now() + 1000;
         flashColor = "red";
@@ -463,7 +599,11 @@ function updateGame() {
   enemies = enemies.filter(en => {
     if (en.y >= canvas.height) {
       lives = Math.max(0, lives - en.livesLost);
-      if (en.type === "brown") { flashColor = "brown"; gameState = "dead"; }
+      if (en.type === "brown") { 
+        flashColor = "brown"; 
+        gameState = "dead"; 
+        playMusic(true); // Forzar reinicio al morir por enemigo brown
+      }
       return false;
     }
     return true;
@@ -503,7 +643,7 @@ function updateGame() {
               hp: stats.hp,
               maxHp: stats.hp,
               livesLost: stats.livesLost,
-              livesGained: stats.livesGained,
+              livesGained: 0,
               ammoReward: stats.ammoReward
             });
           }
@@ -517,15 +657,16 @@ function updateGame() {
   handlePowerUps();
 
   if (colorChangeTimeout && Date.now() > colorChangeTimeout) {
-    playerColor = "yellow";
+    playerTempImage = null; // Volver a textura normal
     colorChangeTimeout = null;
   }
 
   if (lives <= 0) {
     gameState = "dead";
-    playerColor = "sad"; // Cambiar a bauti triste.png
+    playerTempImage = "jaure_muerto"; // Mostrar jaure muerto.png
     deathTimeout = Date.now() + 2000; // Mostrar por 2 segundos
     powerUpBtn.style.display = "none";
+    playMusic(true); // Forzar reinicio al morir
   }
 }
 
@@ -542,6 +683,20 @@ function drawGame() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
+  // Mensaje de advertencia si faltan imágenes o sonidos
+  if ((failedImages.length > 0 || failedSounds.length > 0) && imagesLoaded + soundsLoaded === totalAssets) {
+    ctx.fillStyle = "red";
+    ctx.font = "20px Arial";
+    ctx.fillText("Advertencia: No se cargaron algunos assets", 10, canvas.height - 50);
+    ctx.font = "16px Arial";
+    if (failedImages.length > 0) {
+      ctx.fillText(`Imágenes faltantes: ${failedImages.join(", ")}`, 10, canvas.height - 30);
+    }
+    if (failedSounds.length > 0) {
+      ctx.fillText(`Sonidos faltantes: ${failedSounds.join(", ")}`, 10, canvas.height - 10);
+    }
+  }
+
   // Efecto de tinte (rojo o marrón)
   if (flashTimeout && Date.now() < flashTimeout) {
     ctx.fillStyle = flashColor === "red" ? "rgba(255, 0, 0, 0.5)" : "rgba(139, 69, 19, 0.5)";
@@ -552,11 +707,16 @@ function drawGame() {
   }
 
   // Jugador
-  const playerImage = images[`player_${playerColor}`];
-  if (playerImage.complete) {
+  let playerImage = images[`player_${difficulty}`];
+  if (gameState === "dead" && images.jaure_muerto?.complete) {
+    playerImage = images.jaure_muerto; // Usar jaure muerto.png en estado dead
+  } else if (playerTempImage && images[playerTempImage]?.complete) {
+    playerImage = images[playerTempImage]; // Usar jaure amor.png, jaure feliz.png o jaure enojado.png
+  }
+  if (playerImage && playerImage.complete) {
     ctx.drawImage(playerImage, player.x, player.y, player.w, player.h); // Usa w: 80, h: 80
   } else {
-    ctx.fillStyle = playerColor === "sad" ? "blue" : "yellow"; // Azul para bauti triste si falta
+    ctx.fillStyle = gameState === "dead" ? "blue" : "yellow"; // Azul solo para dead si falta jaure_muerto.png
     ctx.fillRect(player.x, player.y, player.w, player.h); // Usa w: 80, h: 80
   }
 
@@ -572,8 +732,9 @@ function drawGame() {
 
   // Enemigos con barras de vida
   enemies.forEach(en => {
-    const enemyImage = images[`enemy_${en.type}`];
-    if (enemyImage.complete) {
+    const enemyImageKey = en.type === "brown" ? "brown" : `${en.type}_${difficulty}`;
+    const enemyImage = images[enemyImageKey];
+    if (enemyImage && enemyImage.complete) {
       ctx.drawImage(enemyImage, en.x, en.y, en.w, en.h); // Usa w: 60, h: 60
     } else {
       ctx.fillStyle = en.type;
@@ -595,8 +756,9 @@ function drawGame() {
 
   // Power-ups
   powerUps.forEach(p => {
-    if (images.powerup.complete) {
-      ctx.drawImage(images.powerup, p.x, p.y, p.w, p.h); // Usa w: 50, h: 50
+    const powerupImage = images[`powerup_${difficulty}`];
+    if (powerupImage && powerupImage.complete) {
+      ctx.drawImage(powerupImage, p.x, p.y, p.w, p.h); // Usa w: 50, h: 50
     } else {
       ctx.fillStyle = "cyan";
       ctx.fillRect(p.x, p.y, p.w, p.h); // Usa w: 50, h: 50
@@ -613,11 +775,21 @@ function drawGame() {
   ctx.fillText("Lives: " + lives, 10, 40);
   ctx.fillText("Ammo: " + ammo, 10, 60);
   ctx.fillText(levelNames[difficulty], 10, 80);
+  // FPS
+  ctx.textAlign = "right";
+  ctx.fillText(`FPS: ${fps}`, canvas.width - 10, 20);
+  ctx.textAlign = "left"; // Restaurar alineación
 }
 
 // --- LOOP ---
-function loop() {
-  if (imagesLoaded < totalImages) return;
+function loop(timestamp) {
+  if (imagesLoaded + soundsLoaded < totalAssets) return;
+  // Calcular FPS
+  const now = performance.now();
+  const delta = (now - lastFrameTime) / 1000; // Tiempo entre frames en segundos
+  fps = Math.round(1 / delta); // FPS = 1 / tiempo por frame
+  lastFrameTime = now;
+
   if (gameState === "game") {
     updateGame();
     drawGame();
@@ -635,4 +807,4 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-loop();
+loop(performance.now());
