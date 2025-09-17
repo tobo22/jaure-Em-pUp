@@ -722,9 +722,9 @@ function updateGame() {
   if (keys[keyBindings.shoot] && ammo > 0) {
     const now = Date.now();
     // Disparar inmediatamente al presionar o después de 1 segundo para disparo continuo
-    if (shootStartTime && (now - shootStartTime >= 0)) {
+    if (shootStartTime && (now - shootStartTime >= 500)) {
       // Disparo continuo con cadencia de 300ms
-      if (!lastShotTime || (now - lastShotTime >= 100)) {
+      if (!lastShotTime || (now - lastShotTime >= 200)) {
         shoot();
       }
     }
