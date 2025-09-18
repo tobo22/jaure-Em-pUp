@@ -1,8 +1,8 @@
 // Estados y variables globales
-let gameState = "menu"; // menu, settings, credits, records, game, paused, dead, gameover
+let gameState = "menu"; // menu, settings, credits, records, game, paused, dead, gameover, bossTransition
 let player = { x: 0, y: 0, w: 80, h: 80, speed: 5 }; // Jugador 80x80 para imágenes
-let playerCube = { w: 50, h: 50 }; // Cubo del jugador 100x100
-let enemyCube = { w: 50, h: 50 }; // Cubo de enemigos 50x50
+let playerCube = { w: 40, h: 40 }; // Cubo del jugador 40x40
+let enemyCube = { w: 40, h: 40 }; // Cubo de enemigos 40x40
 let bullets = [];
 let enemies = [];
 let kills = 0;
@@ -36,6 +36,18 @@ let isMuted = false; // Estado de mute
 let shootStartTime = null; // Tiempo cuando se comienza a presionar la tecla de disparo
 let lastShotTime = null; // Tiempo del último disparo para controlar la cadencia
 let useTextures = JSON.parse(localStorage.getItem("useTextures")) ?? true; // Texturas activadas por defecto
+let bossActive = false; // Indicador de modo jefe
+let bossAttacks = []; // Lista de ataques del jefe
+let lastBossAttackTime = null; // Tiempo del último ataque del jefe
+let enemySpawnInterval = null; // Intervalo para spawn de enemigos
+let powerUpSpawnInterval = null; // Intervalo para spawn de power-ups
+let fadeOpacity = 0; // Opacidad para el efecto de fade
+let fadeStartTime = null; // Tiempo de inicio del fade
+let wasBossActive = false; // Estado para rastrear si el jugador murió durante el jefe
+let shakeTimeout = null; // Temporizador para el efecto de sacudida
+let shakeIntensity = 5; // Intensidad de la sacudida en píxeles
+let deathByBrown = false; // Bandera para muerte por enemigo marrón
+let bossDefeated = false; // Bandera para derrota del jefe
 
 // Canvas
 const canvas = document.getElementById("gameCanvas");
@@ -50,6 +62,7 @@ const images = {
   background_easy: new Image(),
   background_medium: new Image(),
   background_hard: new Image(),
+  background_end: new Image(),
   player_easy: new Image(),
   player_medium: new Image(),
   player_hard: new Image(),
@@ -63,6 +76,7 @@ const images = {
   purple_medium: new Image(),
   purple_hard: new Image(),
   brown: new Image(),
+  boss: new Image(), // Imagen para el jefe
   powerup_easy: new Image(),
   powerup_medium: new Image(),
   powerup_hard: new Image(),
@@ -78,6 +92,7 @@ const images = {
 images.background_easy.src = 'easy.png';
 images.background_medium.src = 'inter.png';
 images.background_hard.src = 'hard.png';
+images.background_end.src = 'end.png';
 images.player_easy.src = 'bauti pelotudo.png';
 images.player_medium.src = 'bauti pelotudo.png';
 images.player_hard.src = 'bauti pelotudo.png';
@@ -91,6 +106,7 @@ images.purple_easy.src = 'ein.png';
 images.purple_medium.src = 'rapido.png';
 images.purple_hard.src = 'hornet.png';
 images.brown.src = 'orgullo peruano.png';
+images.boss.src = 'boss.png'; // Nueva imagen para el jefe
 images.powerup_easy.src = 'marronaza.png';
 images.powerup_medium.src = 'dito.png';
 images.powerup_hard.src = 'nuu.png';
@@ -107,15 +123,21 @@ images.pause.src = 'pause.png';
 const sounds = {
   menu_song: new Audio(),
   gameover_song: new Audio(),
+  low_kills_gameover_song: new Audio(),
   easy_song: new Audio(),
   medium_song: new Audio(),
-  hard_song: new Audio()
+  hard_song: new Audio(),
+  epic_song: new Audio(),
+  reggueton_gameover_song: new Audio() // Nuevo audio para muerte por marrón
 };
 sounds.menu_song.src = 'menu song.mp3';
 sounds.gameover_song.src = 'gameover song.mp3';
+sounds.low_kills_gameover_song.src = 'reggueton gameover song.mp3';
 sounds.easy_song.src = 'easy song.mp3';
 sounds.medium_song.src = 'medium song.mp3';
 sounds.hard_song.src = 'hard song.mp3';
+sounds.epic_song.src = 'epic song.mp3';
+sounds.reggueton_gameover_song.src = 'reggueton gameover song.mp3';
 
 // Asegurar que todas las imágenes y sonidos estén cargados o fallen antes de empezar
 let imagesLoaded = 0;
@@ -169,9 +191,13 @@ function playMusic(shouldResetMusic = false) {
   if (gameState === "menu" || gameState === "settings" || gameState === "credits" || gameState === "records") {
     expectedSound = sounds.menu_song;
   } else if (gameState === "gameover" || gameState === "dead") {
-    expectedSound = sounds.gameover_song;
-  } else if (gameState === "game" || gameState === "paused") {
-    expectedSound = sounds[`${difficulty}_song`];
+    if (deathByBrown) {
+      expectedSound = sounds.reggueton_gameover_song; // Reproducir reggaeton si muerte por marrón
+    } else {
+      expectedSound = kills < 2 ? sounds.low_kills_gameover_song : sounds.gameover_song;
+    }
+  } else if (gameState === "game" || gameState === "paused" || gameState === "bossTransition") {
+    expectedSound = bossActive ? sounds.epic_song : sounds[`${difficulty}_song`];
   }
 
   if (currentSound && (currentSound !== expectedSound || shouldResetMusic)) {
@@ -203,19 +229,22 @@ const enemyStats = {
     red: { hp: 1, ammoReward: 2, livesLost: 1, livesGained: 0 },
     blue: { hp: 3, ammoReward: 4, livesLost: 3, livesGained: 1 },
     purple: { hp: 3, ammoReward: 5, livesLost: 5, livesGained: 2 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 }
+    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 },
+    boss: { hp: 30, ammoReward: 0, livesLost: 0, livesGained: 0 }
   },
   medium: {
     red: { hp: 2, ammoReward: 2, livesLost: 1, livesGained: 0 },
     blue: { hp: 5, ammoReward: 5, livesLost: 3, livesGained: 1 },
     purple: { hp: 5, ammoReward: 7, livesLost: 5, livesGained: 2 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 }
+    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 },
+    boss: { hp: 30, ammoReward: 0, livesLost: 0, livesGained: 0 }
   },
   hard: {
     red: { hp: 3, ammoReward: 3, livesLost: 3, livesGained: 0 },
     blue: { hp: 6, ammoReward: 6, livesLost: 5, livesGained: 1 },
     purple: { hp: 8, ammoReward: 10, livesLost: 7, livesGained: 2 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 }
+    brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 },
+    boss: { hp: 30, ammoReward: 0, livesLost: 0, livesGained: 0 }
   }
 };
 
@@ -348,7 +377,7 @@ rightBtn.addEventListener("touchend", () => {
 shootBtn.addEventListener("touchstart", () => { if (gameState === "game") shoot(); });
 
 powerUpBtn.addEventListener("touchstart", () => {
-  if (gameState !== "game" || powerHandled) return;
+  if (gameState !== "game" || powerHandled || bossActive) return;
   const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
   const prevLives = lives;
   if (hasCollidedWithPowerUp && activePower) {
@@ -409,7 +438,14 @@ document.getElementById("recordsBtn").onclick = () => {
   playMusic();
 };
 document.getElementById("backToMenuBtn").onclick = () => showMenu();
-document.getElementById("retryBtn").onclick = () => { resetGame(); showGame(); };
+document.getElementById("retryBtn").onclick = () => {
+  if (wasBossActive) {
+    resetToBoss();
+  } else {
+    resetGame();
+  }
+  showGame();
+};
 document.getElementById("backMenuBtn").onclick = () => showMenu();
 document.getElementById("backFromCreditsBtn").onclick = () => showMenu();
 document.getElementById("backToMenuFromRecords").onclick = () => showMenu();
@@ -483,14 +519,22 @@ function updateKeyButtons() {
 function updateRecordsList() {
   const list = document.getElementById("recordsList");
   list.innerHTML = "";
-  records.sort((a, b) => b.score - a.score);
+  records.sort((a, b) => {
+    if (a.score === "boss" && b.score !== "boss") return -1;
+    if (b.score === "boss" && a.score !== "boss") return 1;
+    if (a.score === "boss" && b.score === "boss") return 0;
+    return b.score - a.score;
+  });
   records.forEach((r, index) => {
     const recordDiv = document.createElement("div");
     recordDiv.style.display = "flex";
     recordDiv.style.alignItems = "center";
     recordDiv.style.marginBottom = "10px";
     const p = document.createElement("p");
-    p.textContent = `${r.name} - ${levelNames[r.difficulty]}: ${r.score}`;
+    p.textContent = r.score === "boss" ? `${r.name} - ${levelNames[r.difficulty]} - boss` : `${r.name} - ${levelNames[r.difficulty]}: ${r.score}`;
+    if (r.score === "boss") {
+      p.style.color = "yellow"; // Color amarillo para récords de jefe
+    }
     p.style.marginRight = "10px";
     const deleteBtn = document.createElement("button");
     deleteBtn.textContent = "Borrar";
@@ -541,7 +585,7 @@ function showGame() {
 function showPauseMenu() {
   pauseMenu.style.display = 'block';
   document.getElementById("pauseLives").textContent = lives;
-  document.getElementById("pauseAmmo").textContent = ammo;
+  document.getElementById("pauseAmmo").textContent = ammo === Infinity ? "∞" : ammo;
   document.getElementById("pauseKills").textContent = kills;
   if (currentSound) currentSound.pause();
 }
@@ -549,14 +593,15 @@ function showPauseMenu() {
 function showGameOverMenu() {
   gameState = "gameover";
   gameOverMenu.style.display = 'block';
-  document.getElementById("finalStats").textContent = `Vidas: ${lives} | Balas: ${ammo} | Kills: ${kills}`;
+  document.getElementById("finalStats").textContent = `Vidas: ${lives} | Balas: ${ammo === Infinity ? "∞" : ammo} | Kills: ${kills}`;
   playMusic(true);
 
-  // Solicitar nombre para guardar récord solo si kills > 0
-  if (kills > 0) {
+  // Solicitar nombre para guardar récord solo si kills > 0 o jefe derrotado
+  if (kills > 0 || bossDefeated) {
     let name = prompt("felicidades? creo... nose guarda tu nombre:");
     if (name) {
-      records.push({ name, difficulty, score: kills });
+      const score = bossDefeated ? "boss" : kills; // Guardar "boss" si jefe derrotado
+      records.push({ name, difficulty, score });
       localStorage.setItem("records", JSON.stringify(records));
     }
   }
@@ -568,9 +613,10 @@ function resetGame() {
   bullets = [];
   enemies = [];
   powerUps = [];
-  kills = 0;
-  lives = 3; // Siempre empezar con 3 vidas
-  ammo = 10;
+  kills = 200; // Iniciar con 0 kills para juego normal
+  lives = 3; // Iniciar con 3 vidas
+  maxLives = { easy: 20, medium: 15, hard: 10 }; // Límites de vidas normales
+  ammo = 10; // Munición inicial normal
   activePower = null;
   powerTimeout = null;
   powerHandled = false;
@@ -584,19 +630,71 @@ function resetGame() {
   deathTimeout = null;
   shootStartTime = null; // Reiniciar tiempo de disparo
   lastShotTime = null; // Reiniciar tiempo del último disparo
+  bossActive = false;
+  wasBossActive = false; // Reiniciar estado del jefe
+  bossAttacks = [];
+  lastBossAttackTime = null;
+  shakeTimeout = null; // Reiniciar sacudida
+  deathByBrown = false; // Reiniciar bandera de muerte por marrón
+  bossDefeated = false; // Reiniciar bandera de jefe derrotado
   powerUpBtn.style.display = "none";
+  // Restablecer intervalos
+  if (enemySpawnInterval) clearInterval(enemySpawnInterval);
+  if (powerUpSpawnInterval) clearInterval(powerUpSpawnInterval);
+  enemySpawnInterval = setInterval(spawnEnemy, 1500);
+  powerUpSpawnInterval = setInterval(spawnPowerUp, 10000);
+}
+
+function resetToBoss() {
+  player.x = canvas.width / 2 - (useTextures ? player.w : playerCube.w) / 2;
+  player.y = canvas.height - (useTextures ? player.h : playerCube.h) - 40;
+  bullets = [];
+  enemies = [];
+  powerUps = [];
+  kills = 200; // Iniciar con 200 kills para el jefe
+  lives = difficulty === "easy" ? 5 : 3; // 5 vidas en fácil, 3 en medio/difícil
+  maxLives = { easy: 5, medium: 3, hard: 3 }; // Límites de vidas para el jefe
+  ammo = Infinity; // Munición infinita
+  activePower = null;
+  powerTimeout = null;
+  powerHandled = false;
+  hasCollidedWithPowerUp = false;
+  colorChangeTimeout = null;
+  playerColor = "yellow";
+  playerTempImage = null;
+  flashTimeout = null;
+  flashColor = null;
+  playerFlash = null;
+  deathTimeout = null;
+  shootStartTime = null; // Reiniciar tiempo de disparo
+  lastShotTime = null; // Reiniciar tiempo del último disparo
+  bossActive = false; // Se activará después de la transición
+  wasBossActive = true; // Mantener el estado para el retry
+  bossAttacks = [];
+  lastBossAttackTime = null;
+  shakeTimeout = null; // Reiniciar sacudida
+  deathByBrown = false; // Reiniciar bandera de muerte por marrón
+  bossDefeated = false; // Reiniciar bandera de jefe derrotado
+  powerUpBtn.style.display = "none";
+  // Iniciar transición al jefe
+  gameState = "bossTransition";
+  fadeOpacity = 0;
+  fadeStartTime = Date.now();
+  // Detener intervalos normales
+  if (enemySpawnInterval) clearInterval(enemySpawnInterval);
+  if (powerUpSpawnInterval) clearInterval(powerUpSpawnInterval);
 }
 
 function shoot() {
-  if (ammo > 0) {
+  if (ammo > 0 || ammo === Infinity) {
     bullets.push({ x: player.x + (useTextures ? player.w : playerCube.w) / 2 - 8, y: player.y, w: 16, h: 16, speed: 7 });
-    ammo--;
+    if (ammo !== Infinity) ammo--;
     lastShotTime = Date.now(); // Actualizar tiempo del último disparo
   }
 }
 
 function spawnEnemy() {
-  if (gameState !== "game") return;
+  if (gameState !== "game" || bossActive) return;
 
   let type = kills >= 50 ? "blue" : "red";
   if (kills >= 10 && kills < 50 && Math.random() < 0.3) type = "blue";
@@ -620,18 +718,74 @@ function spawnEnemy() {
     sideSpeed: type === "purple" ? 1 : 0
   });
 }
-setInterval(spawnEnemy, 1500);
 
 function spawnPowerUp() {
-  if (gameState !== "game") return;
+  if (gameState !== "game" || bossActive) return;
   let x = Math.random() * (canvas.width - 50);
   let y = -50;
   let randomKey = String.fromCharCode(65 + Math.floor(Math.random() * 26));
   powerUps.push({ x, y, w: 50, h: 50, key: randomKey, active: true, speed: 2 });
 }
-setInterval(spawnPowerUp, 10000);
+
+function spawnBoss() {
+  const stats = enemyStats[difficulty].boss;
+  enemies.push({
+    x: canvas.width / 2 - 60,
+    y: 50, // Más abajo para que la barra de vida sea visible
+    w: 60,
+    h: 60,
+    speed: 0,
+    type: "boss",
+    hp: stats.hp,
+    maxHp: stats.hp,
+    livesLost: stats.livesLost,
+    livesGained: stats.livesGained,
+    ammoReward: stats.ammoReward,
+    direction: 1, // Para movimiento horizontal
+    sideSpeed: 2 // Velocidad horizontal
+  });
+}
+
+function spawnBossAttack() {
+  if (gameState !== "game" || !bossActive) return;
+  const laneWidth = canvas.width / 3;
+  const lanes = [0, 1, 2];
+  // Seleccionar 2 carriles aleatorios
+  const selectedLanes = [];
+  while (selectedLanes.length < 2) {
+    const randomIndex = Math.floor(Math.random() * lanes.length);
+    selectedLanes.push(lanes.splice(randomIndex, 1)[0]);
+  }
+  const damage = difficulty === "hard" ? 2 : 1;
+  selectedLanes.forEach(lane => {
+    bossAttacks.push({
+      x: lane * laneWidth,
+      y: 0,
+      w: laneWidth,
+      h: 50,
+      speed: 5,
+      damage
+    });
+  });
+  lastBossAttackTime = Date.now();
+}
+
+// Iniciar intervalos
+enemySpawnInterval = setInterval(spawnEnemy, 1500);
+powerUpSpawnInterval = setInterval(spawnPowerUp, 10000);
+
+function startBossTransition() {
+  gameState = "bossTransition";
+  fadeOpacity = 0;
+  fadeStartTime = Date.now();
+  enemies = [];
+  powerUps = [];
+  if (enemySpawnInterval) clearInterval(enemySpawnInterval);
+  if (powerUpSpawnInterval) clearInterval(powerUpSpawnInterval);
+}
 
 function handlePowerUps() {
+  if (bossActive) return; // No manejar power-ups durante el jefe
   powerUps.forEach((p, i) => {
     p.y += p.speed;
     if (p.active &&
@@ -713,46 +867,104 @@ function handlePowerUps() {
 }
 
 function updateGame() {
+  if (gameState === "bossTransition") {
+    const fadeDuration = 3000; // 3 segundos para el fade
+    const elapsed = Date.now() - fadeStartTime;
+    fadeOpacity = Math.min(elapsed / fadeDuration, 1); // Incrementar opacidad de 0 a 1
+    if (elapsed >= fadeDuration) {
+      // Finalizar transición
+      gameState = "game";
+      bossActive = true;
+      wasBossActive = true; // Marcar que estamos en el jefe
+      lives = difficulty === "easy" ? 5 : 3;
+      maxLives = { easy: 5, medium: 3, hard: 3 }; // Actualizar límites de vidas
+      ammo = Infinity;
+      enemies = [];
+      powerUps = [];
+      spawnBoss();
+      fadeOpacity = 0; // Limpiar fade
+      fadeStartTime = null;
+      playMusic(true); // Iniciar epic_song.mp3
+    }
+    return;
+  }
+
   if (gameState !== "game") return;
 
   if (keys[keyBindings.left] && player.x > 0) player.x -= player.speed;
   if (keys[keyBindings.right] && player.x + (useTextures ? player.w : playerCube.w) < canvas.width) player.x += player.speed;
-  
+
   // Manejo del disparo continuo
-  if (keys[keyBindings.shoot] && ammo > 0) {
+  if (keys[keyBindings.shoot] && (ammo > 0 || ammo === Infinity)) {
     const now = Date.now();
     // Disparar inmediatamente al presionar o después de 1 segundo para disparo continuo
-    if (shootStartTime && (now - shootStartTime >= 500)) {
+    if (shootStartTime && (now - shootStartTime >= 1000)) {
       // Disparo continuo con cadencia de 300ms
-      if (!lastShotTime || (now - lastShotTime >= 200)) {
+      if (!lastShotTime || (now - lastShotTime >= 300)) {
         shoot();
       }
     }
+  }
+
+  // Activar modo jefe a los 200 kills
+  if (kills >= 200 && !bossActive) {
+    startBossTransition();
   }
 
   bullets.forEach(b => b.y -= b.speed);
   bullets = bullets.filter(b => b.y > 0);
 
   enemies.forEach(en => {
-    en.y += en.speed;
-    if (en.type === "purple") {
+    if (en.type !== "boss") {
+      en.y += en.speed;
+      if (en.type === "purple") {
+        en.x += en.sideSpeed * en.direction;
+        if (en.x <= 0 || en.x + (useTextures ? en.w : enemyCube.w) >= canvas.width) en.direction *= -1;
+      }
+    } else {
+      // Movimiento horizontal del jefe
       en.x += en.sideSpeed * en.direction;
       if (en.x <= 0 || en.x + (useTextures ? en.w : enemyCube.w) >= canvas.width) en.direction *= -1;
     }
   });
 
+  // Manejo de ataques del jefe con sacudida
+  if (bossActive && (!lastBossAttackTime || Date.now() - lastBossAttackTime >= 2000)) {
+    // Iniciar sacudida antes del ataque
+    shakeTimeout = Date.now() + 1000; // Sacudida de 1 segundo
+    spawnBossAttack();
+  }
+
+  // Actualizar y filtrar ataques del jefe
+  bossAttacks.forEach(a => a.y += a.speed);
+  bossAttacks = bossAttacks.filter(a => a.y < canvas.height); // Eliminar ataques al llegar al fondo
+
   const prevLives = lives;
   enemies = enemies.filter(en => {
-    if (en.y >= canvas.height) {
+    if (en.type !== "boss" && en.y >= canvas.height) {
       lives = Math.max(0, lives - en.livesLost);
-      if (en.type === "brown") { 
-        flashColor = "brown"; 
-        gameState = "dead"; 
+      if (en.type === "brown") {
+        deathByBrown = true; // Marcar muerte por marrón
+        flashColor = "brown";
+        gameState = "dead";
         playMusic(true);
       }
       return false;
     }
     return true;
+  });
+
+  // Colisión de ataques del jefe con el jugador
+  bossAttacks.forEach((a, i) => {
+    if (player.x < a.x + a.w && player.x + (useTextures ? player.w : playerCube.w) > a.x &&
+        player.y < a.y + a.h && player.y + (useTextures ? player.h : playerCube.h) > a.y) {
+      lives = Math.max(0, lives - a.damage);
+      bossAttacks.splice(i, 1);
+      if (lives < prevLives && !flashTimeout) {
+        flashTimeout = Date.now() + 1000;
+        flashColor = "red";
+      }
+    }
   });
 
   if (lives < prevLives && !flashTimeout) {
@@ -772,10 +984,19 @@ function updateGame() {
           const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
           lives = Math.min(lives + en.livesGained, maxLives[difficulty]); // Respetar límite de vidas
           if (en.type === "brown") { enemies.splice(ei, 1); return; }
+          if (en.type === "boss") {
+            bossDefeated = true; // Marcar jefe derrotado
+            gameState = "dead";
+            playerTempImage = "jaure_muerto";
+            deathTimeout = Date.now() + 2000;
+            playMusic(true);
+            enemies.splice(ei, 1);
+            return;
+          }
           enemies.splice(ei, 1);
           kills++;
-          ammo = Math.min(ammo + en.ammoReward, maxAmmo);
-          if (kills === 22 && Math.random() < 0.02) {
+          ammo = ammo === Infinity ? Infinity : Math.min(ammo + en.ammoReward, maxAmmo);
+          if (kills === 22 && Math.random() < 0.02 && !bossActive) {
             const stats = enemyStats[difficulty].brown;
             enemies.push({
               x: Math.random() * (canvas.width - (useTextures ? 60 : enemyCube.w)),
@@ -786,7 +1007,7 @@ function updateGame() {
               type: "brown",
               hp: stats.hp,
               maxHp: stats.hp,
-              livesLost: stats.livesLost,
+              livesLost: 0,
               livesGained: 0,
               ammoReward: stats.ammoReward
             });
@@ -816,14 +1037,26 @@ function updateGame() {
     powerUpBtn.style.display = "none";
     playMusic(true);
   }
+
+  if (shakeTimeout && Date.now() > shakeTimeout) {
+    shakeTimeout = null; // Finalizar sacudida
+  }
 }
 
 function drawGame() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Aplicar efecto de sacudida si está activo
+  if (shakeTimeout && Date.now() <= shakeTimeout) {
+    ctx.save(); // Guardar estado del canvas
+    const offsetX = (Math.random() - 0.5) * 2 * shakeIntensity;
+    const offsetY = (Math.random() - 0.5) * 2 * shakeIntensity;
+    ctx.translate(offsetX, offsetY);
+  }
+
   // Fondo
   if (useTextures) {
-    const backgroundImage = images[`background_${difficulty}`];
+    const backgroundImage = bossActive ? images.background_end : images[`background_${difficulty}`];
     if (backgroundImage && backgroundImage.complete) {
       ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
     } else {
@@ -832,6 +1065,12 @@ function drawGame() {
     }
   } else {
     ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Fondo marrón si muerte por marrón
+  if ((gameState === "dead" || gameState === "gameover") && deathByBrown) {
+    ctx.fillStyle = "rgba(139, 69, 19, 1)"; // Marrón opaco
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
 
@@ -856,6 +1095,15 @@ function drawGame() {
   } else if (flashTimeout && Date.now() >= flashTimeout) {
     flashTimeout = null;
     flashColor = null;
+  }
+
+  // Efecto de fade para la transición al jefe
+  if (gameState === "bossTransition") {
+    ctx.fillStyle = `rgba(0, 0, 0, ${fadeOpacity})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (shakeTimeout) ctx.restore(); // Restaurar si hay sacudida
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Resetear transformación
+    return; // No dibujar nada más durante la transición
   }
 
   // Jugador
@@ -897,16 +1145,16 @@ function drawGame() {
     const enWidth = useTextures ? en.w : enemyCube.w;
     const enHeight = useTextures ? en.h : enemyCube.h;
     if (useTextures) {
-      const enemyImageKey = en.type === "brown" ? "brown" : `${en.type}_${difficulty}`;
+      const enemyImageKey = en.type === "brown" ? "brown" : en.type === "boss" ? "boss" : `${en.type}_${difficulty}`;
       const enemyImage = images[enemyImageKey];
       if (enemyImage && enemyImage.complete) {
         ctx.drawImage(enemyImage, en.x, en.y, en.w, en.h);
       } else {
-        ctx.fillStyle = en.type;
+        ctx.fillStyle = en.type === "boss" ? "red" : en.type;
         ctx.fillRect(en.x, en.y, en.w, en.h);
       }
     } else {
-      ctx.fillStyle = en.type;
+      ctx.fillStyle = en.type === "boss" ? "red" : en.type;
       ctx.fillRect(en.x, en.y, enemyCube.w, enemyCube.h);
     }
 
@@ -921,6 +1169,12 @@ function drawGame() {
       ctx.fillStyle = `rgb(${red}, ${green}, 0)`;
       ctx.fillRect(barX, barY, barWidth, barHeight);
     }
+  });
+
+  // Ataques del jefe
+  bossAttacks.forEach(a => {
+    ctx.fillStyle = "red";
+    ctx.fillRect(a.x, a.y, a.w, a.h);
   });
 
   // Power-ups
@@ -945,13 +1199,34 @@ function drawGame() {
     ctx.fillText(p.key, p.x + 14, p.y + 34); // Dibujar texto
   });
 
+  // Cartel "<null>" al derrotar al jefe
+  if (gameState === "dead" && bossDefeated) {
+    ctx.font = "48px Arial";
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 2;
+    ctx.textAlign = "center";
+    ctx.strokeText("<null>", canvas.width / 2, canvas.height / 2);
+    ctx.fillText("<null>", canvas.width / 2, canvas.height / 2);
+    ctx.textAlign = "left";
+  }
+
   // HUD
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
   ctx.fillText("Kills: " + kills, 10, 20);
-  ctx.fillText("Lives: " + lives, 10, 40);
-  ctx.fillText("Ammo: " + ammo, 10, 60);
-  ctx.fillText(levelNames[difficulty], 10, 80);
+  if (kills >= 200) {
+    const heartSize = 24;
+    ctx.font = `${heartSize}px Arial`;
+    for (let i = 0; i < maxLives[difficulty]; i++) {
+      ctx.fillText(i < lives ? "❤️" : "🖤", 10 + i * (heartSize + 5), 40);
+    }
+  } else {
+    ctx.font = "16px Arial";
+    ctx.fillText("Lives: " + lives, 10, 40);
+    ctx.fillText("Ammo: " + ammo, 10, 60);
+    ctx.fillText(levelNames[difficulty], 10, 80);
+  }
   ctx.textAlign = "right";
   ctx.fillText(`FPS: ${fps}`, canvas.width - 10, 20);
   ctx.textAlign = "left";
@@ -999,6 +1274,14 @@ function drawGame() {
       ctx.textAlign = "left";
     }
   }
+
+  // Restaurar canvas si hubo sacudida
+  if (shakeTimeout && Date.now() <= shakeTimeout) {
+    ctx.restore();
+  }
+
+  // Resetear transformación para asegurar posición original
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 function loop(timestamp) {
@@ -1008,7 +1291,7 @@ function loop(timestamp) {
   fps = Math.round(1 / delta);
   lastFrameTime = now;
 
-  if (gameState === "game") {
+  if (gameState === "game" || gameState === "bossTransition") {
     updateGame();
     drawGame();
   } else if (gameState === "paused") {
