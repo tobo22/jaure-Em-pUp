@@ -613,7 +613,7 @@ function resetGame() {
   bullets = [];
   enemies = [];
   powerUps = [];
-  kills = 200; // Iniciar con 0 kills para juego normal
+  kills = 0; // Iniciar con 0 kills para juego normal
   lives = 3; // Iniciar con 3 vidas
   maxLives = { easy: 20, medium: 15, hard: 10 }; // Límites de vidas normales
   ammo = 10; // Munición inicial normal
@@ -651,7 +651,7 @@ function resetToBoss() {
   bullets = [];
   enemies = [];
   powerUps = [];
-  kills = 200; // Iniciar con 200 kills para el jefe
+  kills = 150; // Iniciar con 200 kills para el jefe
   lives = difficulty === "easy" ? 5 : 3; // 5 vidas en fácil, 3 en medio/difícil
   maxLives = { easy: 5, medium: 3, hard: 3 }; // Límites de vidas para el jefe
   ammo = Infinity; // Munición infinita
@@ -876,7 +876,7 @@ function updateGame() {
       gameState = "game";
       bossActive = true;
       wasBossActive = true; // Marcar que estamos en el jefe
-      lives = difficulty === "easy" ? 5 : 3;
+      lives = difficulty === "easy" ? 5 : 1;
       maxLives = { easy: 5, medium: 3, hard: 3 }; // Actualizar límites de vidas
       ammo = Infinity;
       enemies = [];
@@ -907,7 +907,7 @@ function updateGame() {
   }
 
   // Activar modo jefe a los 200 kills
-  if (kills >= 200 && !bossActive) {
+  if (kills >= 150 && !bossActive) {
     startBossTransition();
   }
 
@@ -1215,7 +1215,7 @@ function drawGame() {
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
   ctx.fillText("Kills: " + kills, 10, 20);
-  if (kills >= 200) {
+  if (kills >= 150) {
     const heartSize = 24;
     ctx.font = `${heartSize}px Arial`;
     for (let i = 0; i < maxLives[difficulty]; i++) {
