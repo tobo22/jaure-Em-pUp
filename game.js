@@ -1,3 +1,5 @@
+// (Previous code remains unchanged until spawnBoss function)
+
 // Estados y variables globales
 let gameState = "menu"; // menu, settings, credits, records, game, paused, dead, gameover, bossTransition, videoTransition
 let player = { x: 0, y: 0, w: 80, h: 80, speed: 5 }; // Jugador 80x80 para imágenes
@@ -112,7 +114,7 @@ images.purple_easy.src = 'ein.png';
 images.purple_medium.src = 'rapido.png';
 images.purple_hard.src = 'hornet.png';
 images.brown.src = 'orgullo peruano.png';
-images.boss.src = 'boss.png';
+images.boss.src = 'boss.gif';
 images.powerup_easy.src = 'marronaza.png';
 images.powerup_medium.src = 'dito.png';
 images.powerup_hard.src = 'nuu.png';
@@ -737,7 +739,7 @@ function resetToBoss() {
   bullets = [];
   enemies = [];
   powerUps = [];
-  kills = 125; // Iniciar con 125 kills para el jefe
+  kills = 150; // Iniciar con 150 kills para el jefe
   lives = difficulty === "easy" ? 5 : 3; // 5 vidas en fácil, 3 en medio/difícil
   maxLives = { easy: 5, medium: 3, hard: 3 }; // Límites de vidas para el jefe
   ammo = Infinity; // Munición infinita
@@ -821,11 +823,11 @@ function spawnPowerUp() {
 function spawnBoss() {
   const stats = enemyStats[difficulty].boss;
   enemies.push({
-    x: canvas.width / 2 - 60,
-    y: 50, // Más abajo para que la barra de vida sea visible
-    w: 60,
-    h: 60,
-    speed: 0,
+    x: canvas.width / 2 - 100, // Centrar el jefe (ajustado para tamaño más grande)
+    y: 50, // Posicionado para visibilidad
+    w: 50, // Tamaño más grande para el GIF animado
+    h: 50, // Tamaño más grande para el GIF animado
+    speed: 0, // Sin movimiento vertical
     type: "boss",
     hp: stats.hp,
     maxHp: stats.hp,
@@ -833,7 +835,7 @@ function spawnBoss() {
     livesGained: stats.livesGained,
     ammoReward: stats.ammoReward,
     direction: 1, // Para movimiento horizontal
-    sideSpeed: 2 // Velocidad horizontal
+    sideSpeed: 2 // Velocidad horizontal original
   });
 }
 
@@ -1030,8 +1032,8 @@ function updateGame() {
     }
   }
 
-  // Activar modo jefe a los 125 kills
-  if (kills >= 125 && !bossActive && !cheat912) { // Evitar transición si cheat912 está activo
+  // Activar modo jefe a los 150 kills
+  if (kills >= 150 && !bossActive && !cheat912) { // Evitar transición si cheat912 está activo
     startBossTransition();
   }
 
@@ -1046,7 +1048,7 @@ function updateGame() {
         if (en.x <= 0 || en.x + (useTextures ? en.w : enemyCube.w) >= canvas.width) en.direction *= -1;
       }
     } else {
-      // Movimiento horizontal del jefe
+      // Movimiento original del jefe: solo horizontal
       en.x += en.sideSpeed * en.direction;
       if (en.x <= 0 || en.x + (useTextures ? en.w : enemyCube.w) >= canvas.width) en.direction *= -1;
     }
@@ -1353,7 +1355,7 @@ function drawGame() {
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
   ctx.fillText("Kills: " + kills, 10, 20);
-  if (kills >= 125 || cheat912) { // Mostrar corazones si cheat912 está activo
+  if (kills >= 150 || cheat912) { // Mostrar corazones si cheat912 está activo
     const heartSize = 24;
     ctx.font = `${heartSize}px Arial`;
     for (let i = 0; i < maxLives[difficulty]; i++) {
