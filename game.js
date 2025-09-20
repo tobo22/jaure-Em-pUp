@@ -48,6 +48,8 @@ let shakeTimeout = null; // Temporizador para el efecto de sacudida
 let shakeIntensity = 5; // Intensidad de la sacudida en píxeles
 let deathByBrown = false; // Bandera para muerte por enemigo marrón
 let bossDefeated = false; // Bandera para derrota del jefe
+let cheat912 = false; // Cheat para 150 kills
+let cheat22 = false; // Cheat para 22 kills y 100% brown enemy spawn
 
 // Canvas
 const canvas = document.getElementById("gameCanvas");
@@ -106,7 +108,7 @@ images.purple_easy.src = 'ein.png';
 images.purple_medium.src = 'rapido.png';
 images.purple_hard.src = 'hornet.png';
 images.brown.src = 'orgullo peruano.png';
-images.boss.src = 'boss.png'; // Nueva imagen para el jefe
+images.boss.src = 'boss.png';
 images.powerup_easy.src = 'marronaza.png';
 images.powerup_medium.src = 'dito.png';
 images.powerup_hard.src = 'nuu.png';
@@ -128,7 +130,7 @@ const sounds = {
   medium_song: new Audio(),
   hard_song: new Audio(),
   epic_song: new Audio(),
-  reggueton_gameover_song: new Audio() // Nuevo audio para muerte por marrón
+  reggueton_gameover_song: new Audio() // Audio para muerte por marrón
 };
 sounds.menu_song.src = 'menu song.mp3';
 sounds.gameover_song.src = 'gameover song.mp3';
@@ -273,18 +275,20 @@ resizeCanvas();
 
 // Input
 document.addEventListener("keydown", e => {
-  e.preventDefault();
-  keys[e.key] = true;
-  if (gameState === "game" && e.key === "Escape") {
-    gameState = "paused";
-    showPauseMenu();
-  } else if (gameState === "paused" && e.key === "Escape") {
-    gameState = "game";
-    pauseMenu.style.display = "none";
-    playMusic();
-  } else if (gameState === "game" && e.key === keyBindings.shoot && !shootStartTime) {
-    shootStartTime = Date.now(); // Registrar tiempo inicial del disparo
-    shoot(); // Disparar inmediatamente al presionar
+  if (e.target.tagName !== "INPUT") { // Ignorar eventos de teclado si el target es un input
+    e.preventDefault();
+    keys[e.key] = true;
+    if (gameState === "game" && e.key === "Escape") {
+      gameState = "paused";
+      showPauseMenu();
+    } else if (gameState === "paused" && e.key === "Escape") {
+      gameState = "game";
+      pauseMenu.style.display = "none";
+      playMusic();
+    } else if (gameState === "game" && e.key === keyBindings.shoot && !shootStartTime) {
+      shootStartTime = Date.now(); // Registrar tiempo inicial del disparo
+      shoot(); // Disparar inmediatamente al presionar
+    }
   }
 });
 document.addEventListener("keyup", e => {
@@ -366,17 +370,28 @@ const rightBtn = document.getElementById("right");
 const shootBtn = document.getElementById("shoot");
 const powerUpBtn = document.getElementById("powerUp");
 
-leftBtn.addEventListener("touchstart", () => keys[keyBindings.left] = true);
-leftBtn.addEventListener("touchend", () => {
+leftBtn.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  keys[keyBindings.left] = true;
+});
+leftBtn.addEventListener("touchend", (e) => {
+  e.preventDefault();
   keys[keyBindings.left] = false;
 });
-rightBtn.addEventListener("touchstart", () => keys[keyBindings.right] = true);
-rightBtn.addEventListener("touchend", () => {
+rightBtn.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  keys[keyBindings.right] = true;
+});
+rightBtn.addEventListener("touchend", (e) => {
+  e.preventDefault();
   keys[keyBindings.right] = false;
 });
-shootBtn.addEventListener("touchstart", () => { if (gameState === "game") shoot(); });
-
-powerUpBtn.addEventListener("touchstart", () => {
+shootBtn.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  if (gameState === "game") shoot();
+});
+powerUpBtn.addEventListener("touchstart", (e) => {
+  e.preventDefault();
   if (gameState !== "game" || powerHandled || bossActive) return;
   const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
   const prevLives = lives;
@@ -403,10 +418,32 @@ powerUpBtn.addEventListener("touchstart", () => {
   powerUpBtn.style.display = "none";
 });
 
+// Manejo de códigos
+codeInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const code = codeInput.value.trim();
+    if (code === "912") {
+      cheat912 = true;
+      cheat22 = false; // Desactivar cheat22 si se activa 912
+      cheatMessage.textContent = "cheat activao";
+      cheatMessage.style.color = "green";
+      cheatMessage.style.display = "block";
+    } else if (code === "22") {
+      cheat22 = true;
+      cheat912 = false; // Desactivar cheat912 si se activa 22
+      cheatMessage.textContent = "cheat activao";
+      cheatMessage.style.color = "green";
+      cheatMessage.style.display = "block";
+    } else {
+      cheatMessage.textContent = "Código incorrecto";
+      cheatMessage.style.color = "red";
+      cheatMessage.style.display = "block";
+    }
+    codeInput.value = ""; // Limpiar input después de enviar
+  }
+});
+
 // --- MENÚS ---
-const menu = document.getElementById("menu");
-const keyMenu = document.getElementById("keyMenu");
-const creditsMenu = document.getElementById("creditsMenu");
 const pauseMenu = document.createElement("div");
 pauseMenu.id = "pauseMenu";
 pauseMenu.className = "menu";
@@ -420,14 +457,53 @@ pauseMenu.innerHTML = `
 `;
 document.body.appendChild(pauseMenu);
 
-const recordsMenu = document.getElementById("recordsMenu");
+document.getElementById("startBtn").onclick = () => {
+  console.log("Botón Iniciar presionado. cheat22:", cheat22, "cheat912:", cheat912); // Depuración
+  // Guardar estado de los cheats antes de resetear
+  const isCheat912Active = cheat912;
+  const isCheat22Active = cheat22;
+  resetGame(); // Reiniciar el juego
+  menu.style.display = 'none'; // Ocultar el menú
+  // Restaurar estado de los cheats
+  cheat912 = isCheat912Active;
+  cheat22 = isCheat22Active;
+  if (cheat912) {
+    console.log("Aplicando cheat 912: kills = 150, iniciando transición al jefe");
+    kills = 150;
+    startBossTransition();
+  } else if (cheat22) {
+    console.log("Aplicando cheat 22: kills = 22, iniciando juego normal");
+    kills = 22;
+    // Forzar spawn de enemigo marrón inmediatamente
+    const stats = enemyStats[difficulty].brown;
+    enemies.push({
+      x: Math.random() * (canvas.width - (useTextures ? 60 : enemyCube.w)),
+      y: -(useTextures ? 60 : enemyCube.h),
+      w: 60,
+      h: 60,
+      speed: 2,
+      type: "brown",
+      hp: stats.hp,
+      maxHp: stats.hp,
+      livesLost: 0,
+      livesGained: 0,
+      ammoReward: stats.ammoReward
+    });
+    showGame();
+  } else {
+    console.log("Iniciando juego sin cheats");
+    showGame();
+  }
+};
 
-document.getElementById("startBtn").onclick = () => { resetGame(); showGame(); };
 document.getElementById("changeKeysBtn").onclick = () => showKeyMenu();
 document.getElementById("creditsBtn").onclick = () => {
   gameState = "credits";
   menu.style.display = 'none';
   creditsMenu.style.display = 'block';
+  cheatMessage.style.display = 'none'; // Ocultar mensaje al entrar
+  codeInput.value = ''; // Limpiar input al entrar
+  codeInput.focus(); // Forzar foco en el input
   playMusic();
 };
 document.getElementById("recordsBtn").onclick = () => {
@@ -476,7 +552,12 @@ pauseMenu.querySelector("#continueBtn").onclick = () => {
   pauseMenu.style.display = "none";
   playMusic();
 };
-pauseMenu.querySelector("#backToMainMenuBtn").onclick = () => showMenu();
+pauseMenu.querySelector("#backToMainMenuBtn").onclick = () => {
+  // Resetear cheats antes de volver al menú
+  cheat912 = false;
+  cheat22 = false;
+  showMenu();
+};
 
 document.getElementById("difficultySelect").onchange = (e) => {
   difficulty = e.target.value;
@@ -594,6 +675,8 @@ function showGameOverMenu() {
   gameState = "gameover";
   gameOverMenu.style.display = 'block';
   document.getElementById("finalStats").textContent = `Vidas: ${lives} | Balas: ${ammo === Infinity ? "∞" : ammo} | Kills: ${kills}`;
+  cheat912 = false; // Resetear cheat 912 al terminar la partida
+  cheat22 = false; // Resetear cheat 22 al terminar la partida
   playMusic(true);
 
   // Solicitar nombre para guardar récord solo si kills > 0 o jefe derrotado
@@ -613,7 +696,7 @@ function resetGame() {
   bullets = [];
   enemies = [];
   powerUps = [];
-  kills = 0; // Iniciar con 0 kills para juego normal
+  kills = 0;
   lives = 3; // Iniciar con 3 vidas
   maxLives = { easy: 20, medium: 15, hard: 10 }; // Límites de vidas normales
   ammo = 10; // Munición inicial normal
@@ -651,7 +734,7 @@ function resetToBoss() {
   bullets = [];
   enemies = [];
   powerUps = [];
-  kills = 150; // Iniciar con 200 kills para el jefe
+  kills = 200; // Iniciar con 200 kills para el jefe
   lives = difficulty === "easy" ? 5 : 3; // 5 vidas en fácil, 3 en medio/difícil
   maxLives = { easy: 5, medium: 3, hard: 3 }; // Límites de vidas para el jefe
   ammo = Infinity; // Munición infinita
@@ -696,10 +779,15 @@ function shoot() {
 function spawnEnemy() {
   if (gameState !== "game" || bossActive) return;
 
-  let type = kills >= 50 ? "blue" : "red";
-  if (kills >= 10 && kills < 50 && Math.random() < 0.3) type = "blue";
-  if (kills >= 50 && Math.random() < 0.1) type = "purple";
-  if (kills === 22 && Math.random() < 0.02) type = "brown";
+  let type;
+  if (cheat22) {
+    type = "brown"; // Forzar enemigos marrones si cheat22 está activo
+  } else {
+    type = kills >= 50 ? "blue" : "red";
+    if (kills >= 10 && kills < 50 && Math.random() < 0.3) type = "blue";
+    if (kills >= 50 && Math.random() < 0.1) type = "purple";
+    if (kills === 22 && Math.random() < 0.02) type = "brown"; // Mantener probabilidad baja si cheat22 no está activo
+  }
 
   const stats = enemyStats[difficulty][type];
   enemies.push({
@@ -800,8 +888,7 @@ function handlePowerUps() {
     }
     if (!p.active && Date.now() > powerTimeout || p.y >= canvas.height) {
       if (!p.active && !powerHandled && hasCollidedWithPowerUp) {
-        const prevLives = lives;
-        lives = Math.max(0, lives - 1);
+        lives = Math.max(0, lives - 1); // Perder vida si no se presiona ninguna tecla
         playerTempImage = "jaure_enojado";
         colorChangeTimeout = Date.now() + 1000;
         if (!useTextures) {
@@ -812,6 +899,8 @@ function handlePowerUps() {
         powerHandled = true;
         hasCollidedWithPowerUp = false;
         powerUpBtn.style.display = "none";
+      } else if (p.y >= canvas.height) {
+        powerUps.splice(i, 1); // Eliminar power-up si llega al fondo
       }
     }
   });
@@ -850,8 +939,7 @@ function handlePowerUps() {
   if (activePower && Date.now() > powerTimeout && !powerHandled) {
     if (hasCollidedWithPowerUp) {
       console.log("Power-up expirado sin acción");
-      const prevLives = lives;
-      lives = Math.max(0, lives - 1);
+      lives = Math.max(0, lives - 1); // Perder vida si no se presiona ninguna tecla
       playerTempImage = "jaure_enojado";
       colorChangeTimeout = Date.now() + 1000;
       if (!useTextures) {
@@ -876,7 +964,7 @@ function updateGame() {
       gameState = "game";
       bossActive = true;
       wasBossActive = true; // Marcar que estamos en el jefe
-      lives = difficulty === "easy" ? 5 : 1;
+      lives = difficulty === "easy" ? 5 : 3;
       maxLives = { easy: 5, medium: 3, hard: 3 }; // Actualizar límites de vidas
       ammo = Infinity;
       enemies = [];
@@ -898,16 +986,16 @@ function updateGame() {
   if (keys[keyBindings.shoot] && (ammo > 0 || ammo === Infinity)) {
     const now = Date.now();
     // Disparar inmediatamente al presionar o después de 1 segundo para disparo continuo
-    if (shootStartTime && (now - shootStartTime >= 1000)) {
+    if (shootStartTime && (now - shootStartTime >= 200)) {
       // Disparo continuo con cadencia de 300ms
-      if (!lastShotTime || (now - lastShotTime >= 300)) {
+      if (!lastShotTime || (now - lastShotTime >= 115)) {
         shoot();
       }
     }
   }
 
   // Activar modo jefe a los 200 kills
-  if (kills >= 150 && !bossActive) {
+  if (kills >= 200 && !bossActive && !cheat912) { // Evitar transición si cheat912 está activo
     startBossTransition();
   }
 
@@ -996,7 +1084,7 @@ function updateGame() {
           enemies.splice(ei, 1);
           kills++;
           ammo = ammo === Infinity ? Infinity : Math.min(ammo + en.ammoReward, maxAmmo);
-          if (kills === 22 && Math.random() < 0.02 && !bossActive) {
+          if (kills === 22 && (cheat22 || Math.random() < 0.02) && !bossActive) {
             const stats = enemyStats[difficulty].brown;
             enemies.push({
               x: Math.random() * (canvas.width - (useTextures ? 60 : enemyCube.w)),
@@ -1215,7 +1303,7 @@ function drawGame() {
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
   ctx.fillText("Kills: " + kills, 10, 20);
-  if (kills >= 150) {
+  if (kills >= 200 || cheat912) { // Mostrar corazones si cheat912 está activo
     const heartSize = 24;
     ctx.font = `${heartSize}px Arial`;
     for (let i = 0; i < maxLives[difficulty]; i++) {
@@ -1270,7 +1358,7 @@ function drawGame() {
       ctx.fillStyle = "white";
       ctx.font = "16px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("⏸️", pauseButton.x + pauseButton.w / 2, pauseButton.y + pauseButton.h / 2 + 6);
+      ctx.fillText("⏸️", pauseButton.x + pauseButton.w / 2, pauseButton.y + muteButton.h / 2 + 6);
       ctx.textAlign = "left";
     }
   }

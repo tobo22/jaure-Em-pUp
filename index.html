@@ -4,6 +4,15 @@
   <title>Jaure'Em pUp</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="estilo.css">
+  <style>
+    .controls button {
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      touch-action: manipulation;
+    }
+  </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="30" height="10"></canvas>
@@ -30,9 +39,9 @@
       <option value="medium">modo: cafe</option>
       <option value="hard">modo: alcohol</option>
     </select>
+    <button id="recordsBtn">Records</button>
     <button id="changeKeysBtn">Ajustes</button>
     <button id="creditsBtn">Créditos</button>
-    <button id="recordsBtn">Records</button>
   </div>
 
   <!-- Submenú de ajustes -->
@@ -54,6 +63,9 @@
     <p>Diseño web: Joaquin 'Nehuen' Jara</p>
     <p>Sprites: Camilo 'Calmas' Paraje</p>
     <p>Derechos de imagen: Bautista 'Jaure' Giberry</p>
+    <p>Código</p>
+    <input id="codeInput" type="text" placeholder="Ingresa el código y presiona Enter">
+    <p id="cheatMessage" style="display: none;"></p>
     <button id="backFromCreditsBtn">Volver</button>
   </div>
 
