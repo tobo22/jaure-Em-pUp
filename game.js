@@ -1,5 +1,5 @@
 // Estados y variables globales
-let gameState = "menu"; // menu, settings, credits, records, game, paused, dead, gameover, bossTransition
+let gameState = "menu"; // menu, settings, credits, records, game, paused, dead, gameover, bossTransition, videoTransition
 let player = { x: 0, y: 0, w: 80, h: 80, speed: 5 }; // Jugador 80x80 para imágenes
 let playerCube = { w: 40, h: 40 }; // Cubo del jugador 40x40
 let enemyCube = { w: 40, h: 40 }; // Cubo de enemigos 40x40
@@ -50,6 +50,10 @@ let deathByBrown = false; // Bandera para muerte por enemigo marrón
 let bossDefeated = false; // Bandera para derrota del jefe
 let cheat912 = false; // Cheat para 150 kills
 let cheat22 = false; // Cheat para 22 kills y 100% brown enemy spawn
+let videoFadeOpacity = 0; // Opacidad para el degradado post-jefe
+let videoFadeStartTime = null; // Tiempo de inicio del degradado
+let videoElement = null; // Elemento de video dinámico
+let isVideoPlaying = false; // Estado para controlar la reproducción del video
 
 // Canvas
 const canvas = document.getElementById("gameCanvas");
@@ -239,14 +243,14 @@ const enemyStats = {
     blue: { hp: 5, ammoReward: 5, livesLost: 3, livesGained: 1 },
     purple: { hp: 5, ammoReward: 7, livesLost: 5, livesGained: 2 },
     brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 },
-    boss: { hp: 30, ammoReward: 0, livesLost: 0, livesGained: 0 }
+    boss: { hp: 40, ammoReward: 0, livesLost: 0, livesGained: 0 }
   },
   hard: {
     red: { hp: 3, ammoReward: 3, livesLost: 3, livesGained: 0 },
     blue: { hp: 6, ammoReward: 6, livesLost: 5, livesGained: 1 },
     purple: { hp: 8, ammoReward: 10, livesLost: 7, livesGained: 2 },
     brown: { hp: 1, ammoReward: 2, livesLost: 0, livesGained: 0 },
-    boss: { hp: 30, ammoReward: 0, livesLost: 0, livesGained: 0 }
+    boss: { hp: 50, ammoReward: 0, livesLost: 0, livesGained: 0 }
   }
 };
 
@@ -640,7 +644,6 @@ function showMenu() {
   recordsMenu.style.display = 'none';
   pauseMenu.style.display = 'none';
   gameOverMenu.style.display = 'none';
-  document.getElementById("difficultySelect").value = difficulty;
   playMusic();
 }
 
@@ -734,7 +737,7 @@ function resetToBoss() {
   bullets = [];
   enemies = [];
   powerUps = [];
-  kills = 200; // Iniciar con 200 kills para el jefe
+  kills = 125; // Iniciar con 125 kills para el jefe
   lives = difficulty === "easy" ? 5 : 3; // 5 vidas en fácil, 3 en medio/difícil
   maxLives = { easy: 5, medium: 3, hard: 3 }; // Límites de vidas para el jefe
   ammo = Infinity; // Munición infinita
@@ -872,6 +875,39 @@ function startBossTransition() {
   if (powerUpSpawnInterval) clearInterval(powerUpSpawnInterval);
 }
 
+function playEndVideo() {
+  if (isVideoPlaying) return;
+  isVideoPlaying = true;
+
+  // Crear elemento de video
+  videoElement = document.createElement("video");
+  videoElement.id = "endVideo";
+  videoElement.src = "end.mp4";
+  videoElement.style.position = "absolute";
+  videoElement.style.top = "0";
+  videoElement.style.left = "0";
+  videoElement.style.width = "100vw";
+  videoElement.style.height = "100vh";
+  videoElement.style.objectFit = "cover"; // Asegurar que cubra toda la pantalla
+  videoElement.style.zIndex = "1000"; // Mostrar sobre el canvas
+  document.body.appendChild(videoElement);
+
+  // Reproducir video
+  videoElement.play().catch(e => console.error("Error reproduciendo end.mp4:", e));
+
+  // Cuando termine el video, volver al menú principal
+  videoElement.onended = () => {
+    videoElement.remove(); // Eliminar el elemento de video
+    videoElement = null;
+    isVideoPlaying = false;
+    videoFadeOpacity = 0;
+    videoFadeStartTime = null;
+    gameState = "menu";
+    menu.style.display = "block";
+    playMusic(true); // Reproducir música del menú
+  };
+}
+
 function handlePowerUps() {
   if (bossActive) return; // No manejar power-ups durante el jefe
   powerUps.forEach((p, i) => {
@@ -994,8 +1030,8 @@ function updateGame() {
     }
   }
 
-  // Activar modo jefe a los 200 kills
-  if (kills >= 200 && !bossActive && !cheat912) { // Evitar transición si cheat912 está activo
+  // Activar modo jefe a los 125 kills
+  if (kills >= 125 && !bossActive && !cheat912) { // Evitar transición si cheat912 está activo
     startBossTransition();
   }
 
@@ -1075,9 +1111,14 @@ function updateGame() {
           if (en.type === "boss") {
             bossDefeated = true; // Marcar jefe derrotado
             gameState = "dead";
-            playerTempImage = "jaure_muerto";
+            playerTempImage = null; // Mostrar "<null>" sin sprite
             deathTimeout = Date.now() + 2000;
-            playMusic(true);
+            // Detener la música actual
+            if (currentSound) {
+              currentSound.pause();
+              currentSound.currentTime = 0;
+              currentSound = null;
+            }
             enemies.splice(ei, 1);
             return;
           }
@@ -1194,6 +1235,15 @@ function drawGame() {
     return; // No dibujar nada más durante la transición
   }
 
+  // Efecto de fade para la transición al video
+  if (gameState === "videoTransition") {
+    ctx.fillStyle = `rgba(0, 0, 0, ${videoFadeOpacity})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (shakeTimeout) ctx.restore(); // Restaurar si hay sacudida
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // Resetear transformación
+    return; // No dibujar nada más durante la transición
+  }
+
   // Jugador
   if (useTextures) {
     let playerImage = images[`player_${difficulty}`];
@@ -1303,7 +1353,7 @@ function drawGame() {
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
   ctx.fillText("Kills: " + kills, 10, 20);
-  if (kills >= 200 || cheat912) { // Mostrar corazones si cheat912 está activo
+  if (kills >= 125 || cheat912) { // Mostrar corazones si cheat912 está activo
     const heartSize = 24;
     ctx.font = `${heartSize}px Arial`;
     for (let i = 0; i < maxLives[difficulty]; i++) {
@@ -1387,11 +1437,30 @@ function loop(timestamp) {
   } else if (gameState === "dead") {
     drawGame();
     if (deathTimeout && Date.now() > deathTimeout) {
-      showGameOverMenu();
-      deathTimeout = null;
+      if (bossDefeated) {
+        // Iniciar degradado a negro
+        if (!videoFadeStartTime) {
+          videoFadeStartTime = Date.now();
+          videoFadeOpacity = 0;
+        }
+        gameState = "videoTransition"; // Nuevo estado para manejar el degradado y video
+        deathTimeout = null;
+      } else {
+        showGameOverMenu();
+        deathTimeout = null;
+      }
     }
   } else if (gameState === "gameover") {
     drawGame();
+  } else if (gameState === "videoTransition") {
+    drawGame();
+    const fadeDuration = 3000; // 3 segundos para el degradado
+    const elapsed = Date.now() - videoFadeStartTime;
+    videoFadeOpacity = Math.min(elapsed / fadeDuration, 1); // Incrementar opacidad de 0 a 1
+    if (elapsed >= fadeDuration && !isVideoPlaying) {
+      // Iniciar reproducción del video
+      playEndVideo();
+    }
   }
   requestAnimationFrame(loop);
 }
