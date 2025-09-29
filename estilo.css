@@ -253,11 +253,8 @@ body {
     margin-top: 20px;
     width: 90%;
   }
-}
 
-/* 📱 Celular: debajo de los botones */
-@media (max-width: 768px) {
-  .bloque-gris {
+    .bloque-gris {
     width: 100%;
     height: 500px;
     bottom: 380px;
@@ -584,4 +581,5 @@ select {
 /* Asegurar que los botones sean clicables cuando están visibles */
 #muteBtn, #pauseBtn[style*="display: block"] {
   pointer-events: auto;
+
 }
