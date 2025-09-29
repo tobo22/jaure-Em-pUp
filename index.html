@@ -15,7 +15,9 @@
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="30" height="10"></canvas>
+  <canvas id="gameCanvas" width="500" height="400"></canvas>
+
+
 
   <!-- Controles móviles -->
   <div class="controls">
@@ -86,23 +88,103 @@
   </div>
 
   <!-- Datos para Jara -->
-  <div id="jaraData">
-    <h1>Datos para Jara</h1>
+
+  
+ 
+  <div class="bloque-gris">
+    <h2 class="info-botones">LA INFO APARECE AL APRETAR LOS BOTONES</h2>
+    <div class="bloque-gris2">
+      <div class="bloque-gris3">
+
+      </div>
+    </div>
+    
+
+  <div class="separacion">
+     <a class="fancy info-btn" data-target="agua">
+      <span class="top-key"></span>
+      <span class="text">Nivel Agua</span>
+      <span class="bottom-key-1"></span>
+      <span class="bottom-key-2"></span>
+    </a>
+    <a class="fancy info-btn" data-target="cafe">
+      <span class="top-key"></span>
+      <span class="text">Nivel Café</span>
+      <span class="bottom-key-1"></span>
+      <span class="bottom-key-2"></span>
+    </a>
+    <a class="fancy info-btn" data-target="alcohol">
+      <span class="top-key"></span>
+      <span class="text">Nivel Alcohol</span>
+      <span class="bottom-key-1"></span>
+      <span class="bottom-key-2"></span>
+    </a>
+  </div>
+  <div id="infoBox" class="info-box"></div>
+</div>
+
+<!-- Contenido oculto -->
+<div id="jaraData" style="display:none;">
+  <div id="agua">
     <h2>Nivel Agua (Fácil)</h2>
     <p>Rojo: 1 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extra</p>
     <p>Azul: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 4 balas y 1 vida extra</p>
     <p>Violeta: 3 de vida, si pasa te saca 5 de vida, si lo matas te da 5 balas y 2 vidas extra</p>
-    <br>
+  </div>
+  <div id="cafe">
     <h2>Nivel Café (Medio)</h2>
     <p>Rojo: 2 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extra</p>
     <p>Azul: 5 de vida, si pasa te saca 3 de vida, si lo matas te da 5 balas y 1 vida extra</p>
     <p>Violeta: 5 de vida, si pasa te saca 5 de vida, si lo matas te da 7 balas y 2 vidas extra</p>
-    <br>
+  </div>
+  <div id="alcohol">
     <h2>Nivel Alcohol (Difícil)</h2>
     <p>Rojo: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 3 balas y 0 vidas extra</p>
     <p>Azul: 6 de vida, si pasa te saca 5 de vida, si lo matas te da 6 balas y 1 vida extra</p>
     <p>Violeta: 8 de vida, si pasa te saca 7 de vida, si lo matas te da 10 balas y 2 vidas extra</p>
   </div>
+</div>
+
+<br>
+<br>
+<br>
+<footer>
+
+  <div class="footer">
+    <!-- From Uiverse.io by adamgiebl --> 
+<div class="container"><p style="color: white; text-align: center;">Hecho por Tobo, Jara, Calmas y Jaure - 2025</p></div>
+  
+  </div>
+</footer>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const buttons = document.querySelectorAll(".info-btn");
+  const infoBox = document.getElementById("infoBox");
+  let activeBtn = null;
+
+  buttons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.dataset.target;
+      const targetContent = document.getElementById(targetId);
+
+      if (infoBox.classList.contains("show") && activeBtn === btn) {
+        // Si ya está abierto con el mismo botón -> lo cerramos
+        infoBox.classList.remove("show");
+        setTimeout(() => { infoBox.innerHTML = ""; }, 500);
+        activeBtn = null;
+      } else {
+        // Mostrar nueva info
+        infoBox.innerHTML = targetContent.innerHTML;
+        infoBox.classList.add("show");
+        activeBtn = btn;
+      }
+    });
+  });
+});
+</script>
+
 
   <script src="game.js"></script>
 </body>

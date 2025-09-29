@@ -1,13 +1,443 @@
 body {
   margin: 0;
+  padding: 0;
   font-family: Arial, sans-serif;
+  background-image: url(cowboy.jpeg);
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-color: #101010;
+
+
 }
+
+.bloque-gris {
+  background-color: #b9b9ad;
+  width: 241.5px;
+  height: 1030px;
+  border-radius: 5px;
+  position: relative;
+  bottom: 80px;
+}
+
+/* Contenedor de botones e info (PC) */
+.bloque-gris-inner {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start; /* info-box al lado de botones */
+}
+
+.bloque-gris2 {
+  background-color: #b9b9ad;
+  width: 425%;
+  height: 50px;
+  left: 200px;
+  border-radius: 5px;
+  position: relative;
+}
+
+.bloque-gris3 {
+  background-color: #b9b9ad;
+  width: 241.5px;
+  height: 1030px;
+  border-radius: 5px;
+  position: relative;
+  left: 785px;
+}
+
+/* --- Responsive para pantallas chicas --- */
+@media (max-width: 768px) {
+  .bloque-gris2,
+  .bloque-gris3 {
+    display: none; /* ocultamos los secundarios */
+  }
+
+  .bloque-gris {
+    height: 500px; /* mantiene la barra fina */
+    width: 100%; /* ocupa todo el ancho */
+    position: relative;
+    bottom: 380px;
+  }
+
+  .separacion {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .fancy {
+    width: 90%;
+    position: relative;
+    top: 90%;
+    right: auto;
+
+  }
+}
+
+.fondo2
+{
+  position: relative;
+  right: 220%;
+  top: 80px;
+  width: 110%;
+}
+
+/*-------------------------------------------------------------------------------------------------------------*/
+/*botones nivel*/
+
+.botones-contenedor {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin: 20px auto;
+  width: 90%;
+  max-width: 400px;
+  background: #f9f9f9;        /* fondo claro */
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15); /* sombra sutil */
+}
+
+.separacion {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+
+.fancy { 
+  background-color: transparent; 
+  border: 2px solid #000; 
+  border-radius: 0; 
+  box-sizing: border-box; 
+  color: #fff; 
+  cursor: pointer; 
+  display: inline-block; 
+  float: right; 
+  font-weight: 700; 
+  letter-spacing: 0.05em; 
+  margin: 0; outline: none; 
+  overflow: visible; padding: 1.25em 2em; 
+  position: relative; 
+  text-align: center; 
+  text-decoration: none; 
+  text-transform: none; 
+  transition: all 0.3s ease-in-out; 
+  user-select: none; 
+  font-size: 13px; 
+  top: 80px; 
+  ight: 5px; }
+
+.fancy:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.fancy::before {
+ content: " ";
+ width: 1.5625rem;
+ height: 2px;
+ background: black;
+ top: 50%;
+ left: 1.5em;
+ position: absolute;
+ transform: translateY(-50%);
+ transform-origin: center;
+ transition: background 0.3s linear, width 0.3s linear;
+}
+
+.fancy .text {
+ font-size: 1.125em;
+ line-height: 1.33333em;
+ padding-left: 2em;
+ display: block;
+ text-align: left;
+ transition: all 0.3s ease-in-out;
+ text-transform: uppercase;
+ text-decoration: none;
+ color: black;
+}
+
+.fancy .top-key {
+ height: 2px;
+ width: 1.5625rem;
+ top: -2px;
+ left: 0.625rem;
+ position: absolute;
+ background: #e8e8e8;
+ transition: width 0.5s ease-out, left 0.3s ease-out;
+}
+
+.fancy .bottom-key-1 {
+ height: 2px;
+ width: 1.5625rem;
+ right: 1.875rem;
+ bottom: -2px;
+ position: absolute;
+ background: #e8e8e8;
+ transition: width 0.5s ease-out, right 0.3s ease-out;
+}
+
+.fancy .bottom-key-2 {
+ height: 2px;
+ width: 0.625rem;
+ right: 0.625rem;
+ bottom: -2px;
+ position: absolute;
+ background: #e8e8e8;
+ transition: width 0.5s ease-out, right 0.3s ease-out;
+}
+
+
+.fancy:hover::before {
+ width: 0.9375rem;
+ background: white;
+}
+
+.fancy:hover .text {
+ color: white;
+ padding-left: 1.5em;
+}
+
+.fancy:hover .top-key {
+ left: -2px;
+ width: 0px;
+}
+
+.fancy:hover .bottom-key-1,
+ .fancy:hover .bottom-key-2 {
+ right: 0;
+ width: 0;
+}
+/*botones nivel*/
+/*---------------------------------------------------------------------------------------------------*/
+
+/*info----------------------------------------------------------------------------------------------*/
+
+/* Globo/cuadro de info */
+/* Caja general de info */
+.info-box {
+  position: absolute;
+  background: #222;
+  color: #fff;
+  padding: 40px;          /* un poco más de padding para que respire el texto */
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5em;
+  width: 350px;           /* ancho fijo para PC */
+  max-width: 90%;          /* que no se salga en pantallas pequeñas */
+  word-wrap: break-word;   /* rompe palabras largas si es necesario */
+  opacity: 0;
+  transition: all 0.5s ease;
+  z-index: 1000;
+}
+
+/* Cuando está activo */
+.info-box.show {
+  opacity: 1;
+}
+
+@media (min-width: 769px) {
+  .info-box {
+    left: calc(241.5px + 20px); /* bloque gris + margen */
+    top: 100px; /* ajusta según tu diseño */
+     width: 600px;          /* más ancho en PC */
+    max-width: none;
+  }
+}
+
+/* Celular: debajo de los botones */
+@media (max-width: 768px) {
+  .info-box {
+    left: 50%;
+    transform: translateX(-50%);
+    top: auto;
+    bottom: -20px; /* debajo de los botones dentro del bloque */
+    margin-top: 20px;
+    width: 90%;
+  }
+}
+
+/* 📱 Celular: debajo de los botones */
+@media (max-width: 768px) {
+  .bloque-gris {
+    width: 100%;
+    height: 500px;
+    bottom: 380px;
+  }
+
+  /* Bloques secundarios se ocultan */
+  .bloque-gris2,
+  .bloque-gris3 {
+    display: none;
+  }
+
+  .bloque-gris-inner {
+    display: block; /* info debajo de botones */
+  }
+
+  .info-box {
+    margin-top: 20px;
+    flex: unset;
+  }
+
+  .separacion {
+    flex-direction: column;
+    gap: 20px;
+    width: 90%;
+    margin: 0 auto;
+  }
+
+  .fancy {
+    width: 100%;
+    top: 0;
+    right: auto;
+  }
+}
+
+/* 📱 Celular: debajo de los botones */
+@media (max-width: 768px) {
+  .bloque-gris {
+    display: block;
+  }
+  .separacion {
+    text-align: center;
+  }
+  .info-box {
+    margin-top: 40px; /* un poco más de espacio debajo de botones */
+  }
+
+}
+
+/* 💻 PC: botones a la izquierda, info a la derecha */
+@media (min-width: 769px) {
+  
+  .separacion {
+    flex: 1; /* ocupa columna izquierda */
+  }
+  .info-box {
+    flex: 2; /* ocupa columna derecha */
+    margin-top: 0; /* alineado con botones */
+  }
+}
+
+
+
+
+/* Flechita tipo tooltip */
+.info-box::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: -10px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: transparent #222 transparent transparent;
+}
+
+
+
+/*info----------------------------------------------------------------------------------------------*/
 
 canvas {
   background: black;
   display: block;
   margin: 0 auto;
   position: relative;
+  top: 950px;
+  
+
+}
+
+@media (max-width: 768px) {
+  canvas {
+    top: 765px;
+    width: 90%;
+    height: auto;
+    max-height: 300px;
+  }
+}
+
+
+/*footer---------------------------------------------------------------------------------------*/
+
+/* From Uiverse.io by adamgiebl */ 
+.container {
+  width: 100%;
+  height: 150px;
+  --color: rgba(114, 114, 114, 0.3);
+  background-color: #191a1a;
+  background-image: linear-gradient(0deg, transparent 24%, var(--color) 25%, var(--color) 26%, transparent 27%,transparent 74%, var(--color) 75%, var(--color) 76%, transparent 77%,transparent),
+      linear-gradient(90deg, transparent 24%, var(--color) 25%, var(--color) 26%, transparent 27%,transparent 74%, var(--color) 75%, var(--color) 76%, transparent 77%,transparent);
+  background-size: 55px 55px;
+}
+
+footer {
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a); /* degradado sutil */
+  padding: 20px 10px;  /* espacio arriba y abajo */
+  text-align: center;
+  color: #f0f0f0;
+  font-size: 14px;
+  box-shadow: inset 0 1px 3px rgba(255,255,255,0.05);
+  margin-top: -150px;  /* un poco de separación del contenido */
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+footer p {
+  margin: 0;
+  line-height: 1.5em;
+}
+
+@media (max-width: 768px) {
+  footer {
+    font-size: 12px;
+    padding: 12px 5px;
+  }
+  
+}
+
+/*footer---------------------------------------------------------------------------------------*/
+
+/*info-botones---------------------------------------------------------------------------------------*/
+.info-botones {
+  position: absolute;
+  top: 65%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.85);
+  padding: 10px;
+  border: 2px solid white;
+  text-align: center;
+  color: white;
+  display: block;
+  max-width: 90%;
+  box-sizing: border-box;
+  z-index: 10;
+  font-size: 14px;
+}
+/*info-botones---------------------------------------------------------------------------------------*/
+
+
+/* Menús */
+.menu {
+  position: absolute;
+  top: 210%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.85);
+  padding: 20px;
+  border: 2px solid white;
+  text-align: center;
+  color: white;
+  display: none;
+  max-width: 90%;
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .menu {
+    width: 90%;
+    top: 150%;
+  }
 }
 
 .controls {
@@ -120,22 +550,7 @@ select {
   border: 2px solid white;
 }
 
-/* Menús */
-.menu {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0,0,0,0.85);
-  padding: 20px;
-  border: 2px solid white;
-  text-align: center;
-  color: white;
-  display: none;
-  max-width: 90%;
-  box-sizing: border-box;
-  z-index: 10;
-}
+
 
 /* Estilo para el botón de mute */
 #muteBtn {
