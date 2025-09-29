@@ -16,7 +16,7 @@ body {
   height: 1030px;
   border-radius: 5px;
   position: relative;
-  bottom: 80px;
+  bottom: 60px;
 }
 
 /* Contenedor de botones e info (PC) */
@@ -583,3 +583,4 @@ select {
   pointer-events: auto;
 
 }
+
