@@ -3,6 +3,9 @@
 <head>
   <title>Jaure'Em pUp</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=BBH+Sans+Bartle&family=Bungee&family=Henny+Penny&family=Josefin+Sans:ital,wght@0,100..700;1,100..700&family=My+Soul&family=Oswald:wght@200..700&family=Pacifico&family=Raleway:ital,wght@0,100..900;1,100..900&family=Rock+Salt&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="estilo.css">
   <style>
     .controls button {
@@ -89,65 +92,74 @@
 
   <!-- Datos para Jara -->
 
-  
- 
-  <div class="bloque-gris">
-    <h2 class="info-botones">LA INFO APARECE AL APRETAR LOS BOTONES</h2>
-    <div class="bloque-gris2">
-      <div class="bloque-gris3">
 
-      </div>
-    </div>
-    
 
-  <div class="separacion">
-     <a class="fancy info-btn" data-target="agua">
-      <span class="top-key"></span>
-      <span class="text">Nivel Agua</span>
-      <span class="bottom-key-1"></span>
-      <span class="bottom-key-2"></span>
-    </a>
-    <a class="fancy info-btn" data-target="cafe">
-      <span class="top-key"></span>
-      <span class="text">Nivel Café</span>
-      <span class="bottom-key-1"></span>
-      <span class="bottom-key-2"></span>
-    </a>
-    <a class="fancy info-btn" data-target="alcohol">
-      <span class="top-key"></span>
-      <span class="text">Nivel Alcohol</span>
-      <span class="bottom-key-1"></span>
-      <span class="bottom-key-2"></span>
-    </a>
-  </div>
-  <div id="infoBox" class="info-box"></div>
+<div>
+  <img class="cowboy2" src="cowboy2.jpeg" alt="">
+  <h1 class="title">El Mejor Jaure Juego</h1>
 </div>
+  
 
 <!-- Contenido oculto -->
-<div id="jaraData" style="display:none;">
-  <div id="agua">
+<div class="contenedor">
+  <button class="boton" id="mostrarBtn">Apretame para saber como pelear junto a Jaure</button>
+</div>
+
+<!-- Ventana emergente -->
+<div class="modal-fondo" id="modalFondo">
+  <div class="cuadro-info">
+    <button class="cerrar" id="cerrarBtn">✖</button>
+
     <h2>Nivel Agua (Fácil)</h2>
-    <p>Rojo: 1 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extra</p>
-    <p>Azul: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 4 balas y 1 vida extra</p>
-    <p>Violeta: 3 de vida, si pasa te saca 5 de vida, si lo matas te da 5 balas y 2 vidas extra</p>
-  </div>
-  <div id="cafe">
-    <h2>Nivel Café (Medio)</h2>
-    <p>Rojo: 2 de vida, si pasa te saca 1 de vida, si lo matas te da 2 balas y 0 vidas extra</p>
-    <p>Azul: 5 de vida, si pasa te saca 3 de vida, si lo matas te da 5 balas y 1 vida extra</p>
-    <p>Violeta: 5 de vida, si pasa te saca 5 de vida, si lo matas te da 7 balas y 2 vidas extra</p>
-  </div>
-  <div id="alcohol">
-    <h2>Nivel Alcohol (Difícil)</h2>
-    <p>Rojo: 3 de vida, si pasa te saca 3 de vida, si lo matas te da 3 balas y 0 vidas extra</p>
-    <p>Azul: 6 de vida, si pasa te saca 5 de vida, si lo matas te da 6 balas y 1 vida extra</p>
-    <p>Violeta: 8 de vida, si pasa te saca 7 de vida, si lo matas te da 10 balas y 2 vidas extra</p>
+    <table>
+      <tr><th>Enemigo</th><th>Vidas que tiene</th><th>Daño si pasa</th><th>Recompensa al matarlo</th></tr>
+      <tr><td>Rojo</td><td>1</td><td>1 vida</td><td>2 balas, 0 vidas extra</td></tr>
+      <tr><td>Azul</td><td>3</td><td>3 vidas</td><td>4 balas, 1 vida extra</td></tr>
+      <tr><td>Violeta</td><td>3</td><td>5 vidas</td><td>5 balas, 2 vidas extra</td></tr>
+    </table>
+
+    <h2>Nivel Fuego (Medio)</h2>
+    <table>
+      <tr><th>Enemigo</th><th>Vidas que tiene</th><th>Daño si pasa</th><th>Recompensa al matarlo</th></tr>
+      <tr><td>Rojo</td><td>2</td><td>2 vidas</td><td>3 balas, 0 vidas extra</td></tr>
+      <tr><td>Azul</td><td>4</td><td>4 vidas</td><td>5 balas, 1 vida extra</td></tr>
+      <tr><td>Violeta</td><td>5</td><td>6 vidas</td><td>7 balas, 2 vidas extra</td></tr>
+    </table>
+
+    <h2>Nivel Sombra (Difícil)</h2>
+    <table>
+      <tr><th>Enemigo</th><th>Vidas que tiene</th><th>Daño si pasa</th><th>Recompensa al matarlo</th></tr>
+      <tr><td>Rojo</td><td>6</td><td>8 vidas</td><td>8 balas, 3 vidas extra</td></tr>
+      <tr><td>Azul</td><td>8</td><td>10 vidas</td><td>10 balas, 4 vidas extra</td></tr>
+      <tr><td>Violeta</td><td>10</td><td>12 vidas</td><td>15 balas, 5 vidas extra</td></tr>
+    </table>
   </div>
 </div>
+    <img class="jaure" src="jaure giff.gif" alt="">
+  <img class="jaure2" src="jaure enojado gif.gif" alt="">
+  <a href="jaure.html">
+  <img class="jaure3" src="jaure...gif" alt="">
+  </a>
+<script>
+const mostrarBtn = document.getElementById('mostrarBtn');
+const modalFondo = document.getElementById('modalFondo');
+const cerrarBtn = document.getElementById('cerrarBtn');
+
+mostrarBtn.addEventListener('click', () => {
+  modalFondo.style.display = 'flex';
+});
+
+cerrarBtn.addEventListener('click', () => {
+  modalFondo.style.display = 'none';
+});
+</script>
+
+
 
 <br>
 <br>
 <br>
+
 <footer>
 
   <div class="footer">
@@ -157,33 +169,6 @@
   </div>
 </footer>
 
-
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const buttons = document.querySelectorAll(".info-btn");
-  const infoBox = document.getElementById("infoBox");
-  let activeBtn = null;
-
-  buttons.forEach(btn => {
-    btn.addEventListener("click", () => {
-      const targetId = btn.dataset.target;
-      const targetContent = document.getElementById(targetId);
-
-      if (infoBox.classList.contains("show") && activeBtn === btn) {
-        // Si ya está abierto con el mismo botón -> lo cerramos
-        infoBox.classList.remove("show");
-        setTimeout(() => { infoBox.innerHTML = ""; }, 500);
-        activeBtn = null;
-      } else {
-        // Mostrar nueva info
-        infoBox.innerHTML = targetContent.innerHTML;
-        infoBox.classList.add("show");
-        activeBtn = btn;
-      }
-    });
-  });
-});
-</script>
 
 
   <script src="game.js"></script>
