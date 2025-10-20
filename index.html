@@ -92,7 +92,10 @@
 
   <!-- Datos para Jara -->
 
-
+<div id="intro-video-container">
+  <video id="intro-video" src="intro.mp4" autoplay muted></video>
+  <button id="skip-intro-btn">Saltar intro ✖</button>
+</div>
 
 <div>
   <img class="cowboy2" src="cowboy2.jpeg" alt="">
@@ -152,6 +155,31 @@ mostrarBtn.addEventListener('click', () => {
 cerrarBtn.addEventListener('click', () => {
   modalFondo.style.display = 'none';
 });
+
+document.addEventListener("DOMContentLoaded", () => {
+    const introContainer = document.getElementById("intro-video-container");
+    const introVideo = document.getElementById("intro-video");
+    const skipBtn = document.getElementById("skip-intro-btn");
+
+    // Siempre mostrar el video (sin sessionStorage)
+    introContainer.style.display = "flex";
+
+    introVideo.addEventListener("ended", () => {
+      hideIntro();
+    });
+
+    skipBtn.addEventListener("click", () => {
+      hideIntro();
+    });
+
+    function hideIntro() {
+      introContainer.style.transition = "opacity 0.8s";
+      introContainer.style.opacity = "0";
+      setTimeout(() => {
+        introContainer.style.display = "none";
+      }, 800);
+    }
+  });
 </script>
 
 

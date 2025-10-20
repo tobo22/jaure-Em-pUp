@@ -232,6 +232,54 @@ h2 {
 
 
 /*info----------------------------------------------------------------------------------------------*/
+#intro-video-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: black;
+  z-index: 9999;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+#intro-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* ✅ muestra todo el video sin recortar */
+  background: black;
+}
+
+#skip-intro-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: 2px solid white;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 10000;
+  transition: background 0.3s;
+}
+
+#skip-intro-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* En celular: adapta para que se vea bien horizontalmente */
+@media (max-width: 768px) {
+  #intro-video {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+  }
+}
 
 
 /*info----------------------------------------------------------------------------------------------*/
