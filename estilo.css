@@ -16,6 +16,13 @@ body {
 
 }
 
+
+* {
+  box-sizing: border-box;
+  max-width: 100vw; /* evita que nada crezca más que el viewport */
+}
+
+
 /*imagenes*/
 .cowboy2 {
   width: 100%;
@@ -43,7 +50,7 @@ body {
 
 /* Derecha */
 .jaure2 {
-  right: -1%;
+  right: 0%;
 }
 
 /*imagenes*/
@@ -211,19 +218,19 @@ h2 {
   .boton {
     font-size: 0.9em;
     padding: 12px 20px;
-    top: 87%;
+    top: 120%;
     width: 80%;
   }
 
 .jaure,
 .jaure2 {
     width: 30%; /* tamaño ajustable */
-    top: 220%; /* Ajustá según dónde esté tu canvas */
+    top: 274%; /* Ajustá según dónde esté tu canvas */
   }
 
   .jaure3 {
     width: 30%; /* tamaño ajustable */
-    top: 207%; /* Ajustá según dónde esté tu canvas */
+    top: 264%; /* Ajustá según dónde esté tu canvas */
     right: 34%;
     display: block;
   }
@@ -339,7 +346,7 @@ footer p {
   footer {
     font-size: 12px;
     padding: 12px 5px;
-    top: 205%;
+    top: 268%;
   }
 
   .info-botones
@@ -391,8 +398,8 @@ footer p {
 
 @media (max-width: 768px) {
   .menu {
-    width: 50%;
-    top: 146%;
+    width: 62%;
+    top: 201%;
   }
 }
 
