@@ -21,16 +21,19 @@
   <canvas id="gameCanvas" width="500" height="400"></canvas>
 
 
-
   <!-- Controles móviles -->
   <div class="controls">
     <div class="controls-container">
       <div class="movement-controls">
-        <button id="left">⬅️</button>
-        <button id="shoot">🔫</button>
-        <button id="right">➡️</button>
+        <button id="left">Left</button>
+        <button id="shoot">Shoot</button>
+        <button id="right">Right</button>
+        <button id="up">Up</button>
+        <button id="down">Down</button>
+        <button id="sprint">Run</button>
+        <button id="grenade">Grenade</button>
       </div>
-      <button id="powerUp" style="display: none;">✅</button>
+        <button id="powerUp" style="display: none;">Check</button>
     </div>
   </div>
 
@@ -49,17 +52,21 @@
     <button id="creditsBtn">Créditos</button>
   </div>
 
-  <!-- Submenú de ajustes -->
-  <div id="keyMenu" class="menu">
-    <h2>Ajustes</h2>
-    <button id="leftKeyBtn">Izquierda: ←</button>
-    <button id="rightKeyBtn">Derecha: →</button>
-    <button id="shootKeyBtn">Disparo: Espacio</button>
-    <button id="resetKeysBtn">Resetear Controles</button>
-    <button id="textureToggleBtn">Texturas: Sí</button>
-    <p id="keyPrompt" style="color:yellow; display:none;">Presiona una tecla...</p>
-    <button id="backToMenuBtn">Volver</button>
-  </div>
+<!-- Submenú de ajustes -->
+<div id="keyMenu" class="menu">
+  <h2>Ajustes</h2>
+  <button id="leftKeyBtn">Izquierda: ←</button>
+  <button id="rightKeyBtn">Derecha: →</button>
+  <button id="upKeyBtn">Arriba: ↑</button>
+  <button id="downKeyBtn">Abajo: ↓</button>
+  <button id="shootKeyBtn">Disparo: Espacio</button>
+  <button id="sprintKeyBtn">Sprint: Shift</button>
+  <button id="grenadeKeyBtn">Granada: Q</button> 
+  <button id="resetKeysBtn">Resetear Controles</button>
+  <button id="textureToggleBtn">Texturas: Sí</button>
+  <p id="keyPrompt" style="color:yellow; display:none;">Presiona una tecla...</p>
+  <button id="backToMenuBtn">Volver</button>
+</div>
 
   <!-- Submenú de créditos -->
   <div id="creditsMenu" class="menu" style="display:none;">
@@ -116,25 +123,25 @@
     <h2>Nivel Agua (Fácil)</h2>
     <table>
       <tr><th>Enemigo</th><th>Vidas que tiene</th><th>Daño si pasa</th><th>Recompensa al matarlo</th></tr>
-      <tr><td>Rojo</td><td>1</td><td>1 vida</td><td>2 balas, 0 vidas extra</td></tr>
-      <tr><td>Azul</td><td>3</td><td>3 vidas</td><td>4 balas, 1 vida extra</td></tr>
-      <tr><td>Violeta</td><td>3</td><td>5 vidas</td><td>5 balas, 2 vidas extra</td></tr>
+      <tr><td>spike</td><td>1</td><td>1 vida</td><td>2 balas, 0 vidas extra</td></tr>
+      <tr><td>jet</td><td>3</td><td>3 vidas</td><td>4 balas, 1 vida extra</td></tr>
+      <tr><td>ein</td><td>3</td><td>5 vidas</td><td>5 balas, 2 vidas extra</td></tr>
     </table>
 
     <h2>Nivel Fuego (Medio)</h2>
     <table>
       <tr><th>Enemigo</th><th>Vidas que tiene</th><th>Daño si pasa</th><th>Recompensa al matarlo</th></tr>
-      <tr><td>Rojo</td><td>2</td><td>2 vidas</td><td>3 balas, 0 vidas extra</td></tr>
-      <tr><td>Azul</td><td>4</td><td>4 vidas</td><td>5 balas, 1 vida extra</td></tr>
-      <tr><td>Violeta</td><td>5</td><td>6 vidas</td><td>7 balas, 2 vidas extra</td></tr>
+      <tr><td>ratata</td><td>2</td><td>2 vidas</td><td>3 balas, 0 vidas extra</td></tr>
+      <tr><td>ratikate</td><td>4</td><td>4 vidas</td><td>5 balas, 1 vida extra</td></tr>
+      <tr><td>rapido (no se su nombre)</td><td>5</td><td>6 vidas</td><td>7 balas, 2 vidas extra</td></tr>
     </table>
 
     <h2>Nivel Sombra (Difícil)</h2>
     <table>
       <tr><th>Enemigo</th><th>Vidas que tiene</th><th>Daño si pasa</th><th>Recompensa al matarlo</th></tr>
-      <tr><td>Rojo</td><td>6</td><td>8 vidas</td><td>8 balas, 3 vidas extra</td></tr>
-      <tr><td>Azul</td><td>8</td><td>10 vidas</td><td>10 balas, 4 vidas extra</td></tr>
-      <tr><td>Violeta</td><td>10</td><td>12 vidas</td><td>15 balas, 5 vidas extra</td></tr>
+      <tr><td>knight</td><td>6</td><td>8 vidas</td><td>8 balas, 3 vidas extra</td></tr>
+      <tr><td>hollow knight</td><td>8</td><td>10 vidas</td><td>10 balas, 4 vidas extra</td></tr>
+      <tr><td>hornet</td><td>10</td><td>12 vidas</td><td>15 balas, 5 vidas extra</td></tr>
     </table>
   </div>
 </div>
