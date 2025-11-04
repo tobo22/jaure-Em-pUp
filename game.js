@@ -8,7 +8,7 @@ let bullets = [];
 let enemies = [];
 let kills = 0;
 let lives = 3; // Vidas iniciales por defecto
-let maxLives = 3; // Límite inicial de vidas, puede aumentar a 4 con power-up
+let maxLives = 5; // Límite inicial de vidas, puede aumentar a 4 con power-up
 let points = 0; // Puntos iniciales
 let ammo = 10;
 let powerUps = [];
@@ -23,7 +23,7 @@ let flashTimeout = null;
 let flashColor = null; // "red" o "brown" para flashes de pantalla completa
 let playerFlash = null; // { color: "green"|"red", timeout: number } para flashes del jugador en modo cubo
 let keys = {};
-let defaultKeys = { left: "A", right: "D", up: "W", down: "S", shoot: " ", sprint: "Shift", grenade: "Q" };
+let defaultKeys = { left: "a", right: "d", up: "w", down: "s", shoot: " ", sprint: "Shift", grenade: "q" };
 let keyBindings = JSON.parse(localStorage.getItem("keyBindings")) || defaultKeys;
 let difficulty = localStorage.getItem("difficulty") || "easy"; // Por defecto: fácil
 let records = JSON.parse(localStorage.getItem("records")) || []; // Lista de récords
@@ -160,16 +160,22 @@ const sounds = {
   medium_song: new Audio(),
   hard_song: new Audio(),
   epic_song: new Audio(),
-  reggueton_gameover_song: new Audio() // Audio para muerte por marrón
+  reggueton_gameover_song: new Audio(), // Audio para muerte por marrón
+  damage: new Audio(),
+  powerup: new Audio(),
+  death: new Audio()
 };
 sounds.menu_song.src = 'menu song.mp3';
-sounds.gameover_song.src = 'gameover song.mp3';
+sounds.gameover_song.src = 'gameoversong.mp3';
 sounds.low_kills_gameover_song.src = 'reggueton gameover song.mp3';
 sounds.easy_song.src = 'easy song.mp3';
 sounds.medium_song.src = 'medium song.mp3';
 sounds.hard_song.src = 'hard song.mp3';
 sounds.epic_song.src = 'epic song.mp3';
 sounds.reggueton_gameover_song.src = 'reggueton gameover song.mp3';
+sounds.damage.src = 'audio_daño.mp3';
+sounds.powerup.src = 'audio_cel.mp3';
+sounds.death.src = 'audio_muerte.mp3';
 // Asegurar que todas las imágenes y sonidos estén cargados o fallen antes de empezar
 let imagesLoaded = 0;
 let soundsLoaded = 0;
@@ -196,7 +202,11 @@ for (let key in images) {
 }
 for (let key in sounds) {
   sounds[key].oncanplaythrough = () => {
-    sounds[key].loop = true; // Configurar bucle para todos los sonidos
+    if (key.endsWith('_song')) {
+      sounds[key].loop = true; // Bucle solo para canciones
+    } else {
+      sounds[key].loop = false; // Efectos sin bucle
+    }
     soundsLoaded++;
     if (imagesLoaded + soundsLoaded === totalAssets) {
       playMusic(true); // Iniciar música del menú al cargar
@@ -240,6 +250,12 @@ function playMusic(shouldResetMusic = false) {
     currentSound.play().catch(e => console.error(`Error reproduciendo ${currentSound.src}:`, e));
   }
 }
+// Función para reproducir efectos de sonido
+function playSound(soundKey) {
+  if (!isMuted && sounds[soundKey]) {
+    sounds[soundKey].play().catch(e => console.error(`Error reproduciendo ${sounds[soundKey].src}:`, e));
+  }
+}
 // Nombres de los niveles
 const levelNames = {
   easy: "Nivel Agua (facil)",
@@ -250,24 +266,24 @@ const levelNames = {
 const enemyStats = {
   easy: {
     red: { hp: 1, ammoReward: 2, livesLost: 1, pointsGained: 1 },
-    blue: { hp: 3, ammoReward: 4, livesLost: 3, pointsGained: 3 },
-    purple: { hp: 3, ammoReward: 5, livesLost: 5, pointsGained: 3 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, pointsGained: 1 },
+    blue: { hp: 3, ammoReward: 4, livesLost: 2, pointsGained: 3 },
+    purple: { hp: 3, ammoReward: 5, livesLost: 3, pointsGained: 3 },
+    brown: { hp: 100, ammoReward: 2, livesLost: 0, pointsGained: 1 },
     boss: { hp: 30, ammoReward: 0, livesLost: 1, pointsGained: 30 }
   },
   medium: {
     red: { hp: 2, ammoReward: 2, livesLost: 1, pointsGained: 2 },
     blue: { hp: 5, ammoReward: 5, livesLost: 3, pointsGained: 5 },
     purple: { hp: 5, ammoReward: 7, livesLost: 5, pointsGained: 5 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, pointsGained: 1 },
-    boss: { hp: 40, ammoReward: 0, livesLost: 1, pointsGained: 40 }
+    brown: { hp: 100, ammoReward: 2, livesLost: 0, pointsGained: 1 },
+    boss: { hp: 50, ammoReward: 0, livesLost: 1, pointsGained: 40 }
   },
   hard: {
     red: { hp: 3, ammoReward: 3, livesLost: 3, pointsGained: 3 },
     blue: { hp: 6, ammoReward: 6, livesLost: 5, pointsGained: 6 },
     purple: { hp: 8, ammoReward: 10, livesLost: 7, pointsGained: 8 },
-    brown: { hp: 1, ammoReward: 2, livesLost: 0, pointsGained: 1 },
-    boss: { hp: 50, ammoReward: 0, livesLost: 2, pointsGained: 50 }
+    brown: { hp: 100, ammoReward: 2, livesLost: 0, pointsGained: 1 },
+    boss: { hp: 80, ammoReward: 0, livesLost: 2, pointsGained: 50 }
   }
 };
 // Ajustar canvas responsive en móvil
@@ -296,7 +312,11 @@ resizeCanvas();
 document.addEventListener("keydown", e => {
   if (e.target.tagName !== "INPUT") { // Ignorar eventos de teclado si el target es un input
     e.preventDefault();
-    keys[e.key] = true;
+    if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key)) {
+      keys[e.key.toLowerCase()] = true;
+    } else {
+      keys[e.key] = true;
+    }
     if (gameState === "game" && e.key === "Escape") {
       gameState = "paused";
       showPauseMenu();
@@ -314,7 +334,11 @@ document.addEventListener("keydown", e => {
   }
 });
 document.addEventListener("keyup", e => {
-  keys[e.key] = false;
+  if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key)) {
+    keys[e.key.toLowerCase()] = false;
+  } else {
+    keys[e.key] = false;
+  }
   if (e.key === keyBindings.shoot) {
     shootStartTime = null; // Reiniciar al soltar la tecla
     lastShotTime = null;
@@ -441,12 +465,16 @@ powerUpBtn.addEventListener("touchstart", (e) => {
     if (!useTextures) {
       playerFlash = { color: "green", timeout: Date.now() + 1000 };
     }
+    playSound('powerup');
   } else {
     lives = Math.max(0, lives - 1);
     playerTempImage = "jaure_enojado";
     colorChangeTimeout = Date.now() + 1000;
     if (!useTextures) {
       playerFlash = { color: "red", timeout: Date.now() + 1000 };
+    }
+    if (lives < prevLives) {
+      playSound('damage');
     }
   }
   powerUps = [];
@@ -633,7 +661,11 @@ function waitKey(action, button) {
       alert("¡Esa tecla ya está asignada!");
       return;
     }
-    keyBindings[action] = e.key;
+    if (e.key.length === 1 && /^[a-zA-Z]$/.test(e.key)) {
+      keyBindings[action] = e.key.toLowerCase();
+    } else {
+      keyBindings[action] = e.key;
+    }
     localStorage.setItem("keyBindings", JSON.stringify(keyBindings));
     updateKeyButtons();
     document.getElementById("keyPrompt").style.display = "none";
@@ -874,6 +906,10 @@ function shoot() {
     bullets.push({ x: player.x + (useTextures ? player.w : playerCube.w) / 2 - 8, y: player.y, w: 16, h: 16, speed: 7 });
     if (!machinegunActive && ammo !== Infinity) ammo--;
     lastShotTime = Date.now(); // Actualizar tiempo del último disparo
+    if (machinegunActive) {
+      shakeIntensity = 2;
+      shakeTimeout = Date.now() + 200;
+    }
   }
 }
 function spawnEnemy() {
@@ -993,18 +1029,14 @@ function spawnTargetedBossAttack() {
 function spawnBossSpheres() {
   const boss = enemies.find(e => e.type === "boss");
   if (!boss || gameState !== "game" || !bossActive || bossSphereAttackActive) return;
-
   bossSpheres = [];
   bossSphereAttackActive = true;
-
   const count = BOSS_SPHERE_COUNTS[difficulty];
   const spacing = canvas.width / (count + 1);
   const now = Date.now();
-
   for (let i = 1; i <= count; i++) {
     const x = i * spacing;
     const y = BOSS_SPHERE_RADIUS; // Appear at top
-
     // Initial direction towards player
     const playerCenterX = player.x + (useTextures ? player.w : playerCube.w) / 2;
     const playerCenterY = player.y + (useTextures ? player.h : playerCube.h) / 2;
@@ -1013,7 +1045,6 @@ function spawnBossSpheres() {
     const dist = Math.sqrt(dx * dx + dy * dy);
     let vx = (dx / dist) * BOSS_SPHERE_SPEED;
     let vy = (dy / dist) * BOSS_SPHERE_SPEED;
-
     bossSpheres.push({
       x,
       y,
@@ -1027,25 +1058,20 @@ function spawnBossSpheres() {
       alive: true
     });
   }
-
   lastBossAttackTime = Date.now();
   console.log("Boss launching attack type: spheres");
 }
 function updateBossSpheres() {
   if (!bossActive) return;
-
   const now = Date.now();
   bossSpheres = bossSpheres.filter(sphere => {
     if (!sphere.alive) return false;
-
     const delta = (now - sphere.lastUpdate) / 1000;
     sphere.hp -= delta;
     sphere.lastUpdate = now;
-
     if (sphere.hp <= 0) {
       return false;
     }
-
     // Follow player
     const playerCenterX = player.x + (useTextures ? player.w : playerCube.w) / 2;
     const playerCenterY = player.y + (useTextures ? player.h : playerCube.h) / 2;
@@ -1056,10 +1082,8 @@ function updateBossSpheres() {
       sphere.vx = (dx / dist) * BOSS_SPHERE_SPEED;
       sphere.vy = (dy / dist) * BOSS_SPHERE_SPEED;
     }
-
     sphere.x += sphere.vx;
     sphere.y += sphere.vy;
-
     // Bounce on walls
     if (sphere.x - sphere.radius < 0) {
       sphere.x = sphere.radius;
@@ -1075,23 +1099,24 @@ function updateBossSpheres() {
       sphere.y = canvas.height - sphere.radius;
       sphere.vy = -sphere.vy;
     }
-
     // Collision with player
     const pw = useTextures ? player.w : playerCube.w;
     const ph = useTextures ? player.h : playerCube.h;
     if (player.x < sphere.x + sphere.radius && player.x + pw > sphere.x - sphere.radius &&
         player.y < sphere.y + sphere.radius && player.y + ph > sphere.y - sphere.radius) {
+      const prevLives = lives;
       lives = Math.max(0, lives - BOSS_SPHERE_DAMAGE);
+      if (lives < prevLives) {
+        playSound('damage');
+      }
       flashTimeout = Date.now() + 1000;
       flashColor = "red";
       playerTempImage = "jaure_enojado";
       colorChangeTimeout = Date.now() + 1000;
       return false;
     }
-
     return true;
   });
-
   // Repulsion between spheres
   for (let i = 0; i < bossSpheres.length; i++) {
     for (let j = i + 1; j < bossSpheres.length; j++) {
@@ -1111,7 +1136,6 @@ function updateBossSpheres() {
       }
     }
   }
-
   if (bossSpheres.length === 0 && bossSphereAttackActive) {
     bossSphereAttackActive = false;
     currentAttackFinished = true;
@@ -1120,13 +1144,11 @@ function updateBossSpheres() {
 function drawBossSpheres() {
   bossSpheres.forEach(sphere => {
     if (!sphere.alive) return;
-
     ctx.beginPath();
     ctx.arc(sphere.x, sphere.y, sphere.radius, 0, 2 * Math.PI);
     ctx.fillStyle = "red";
     ctx.fill();
     ctx.closePath();
-
     // Health bar if damaged
     if (sphere.hp < sphere.maxHp) {
       const healthRatio = sphere.hp / sphere.maxHp;
@@ -1191,14 +1213,18 @@ function handlePowerUps() {
         player.y < p.y + p.h && player.y + (useTextures ? player.h : playerCube.h) > p.y) {
       activePower = p;
       p.active = false;
-      powerTimeout = Date.now() + 1500;
+      powerTimeout = Date.now() + 1000;
       powerHandled = false;
       hasCollidedWithPowerUp = true;
       if (isMobile) powerUpBtn.style.display = "inline-block";
     }
     if (!p.active && Date.now() > powerTimeout || p.y >= canvas.height) {
       if (!p.active && !powerHandled && hasCollidedWithPowerUp) {
+        const prevLives = lives;
         lives = Math.max(0, lives - 1); // Perder vida si no se presiona ninguna tecla
+        if (lives < prevLives) {
+          playSound('damage');
+        }
         playerTempImage = "jaure_enojado";
         colorChangeTimeout = Date.now() + 1000;
         if (!useTextures) {
@@ -1230,9 +1256,13 @@ function handlePowerUps() {
         if (!useTextures) {
           playerFlash = { color: "green", timeout: Date.now() + 1000 };
         }
+        playSound('powerup');
       } else if (e.key !== "Escape" && e.key !== keyBindings.shoot && e.key !== keyBindings.left && e.key !== keyBindings.right && e.key !== keyBindings.up && e.key !== keyBindings.down) {
         console.log("Power-up fallado!");
         lives = Math.max(0, lives - 1);
+        if (lives < prevLives) {
+          playSound('damage');
+        }
         playerTempImage = "jaure_enojado";
         colorChangeTimeout = Date.now() + 1000;
         if (!useTextures) {
@@ -1248,7 +1278,11 @@ function handlePowerUps() {
   if (activePower && Date.now() > powerTimeout && !powerHandled) {
     if (hasCollidedWithPowerUp) {
       console.log("Power-up expirado sin acción");
+      const prevLives = lives;
       lives = Math.max(0, lives - 1); // Perder vida si no se presiona ninguna tecla
+      if (lives < prevLives) {
+        playSound('damage');
+      }
       playerTempImage = "jaure_enojado";
       colorChangeTimeout = Date.now() + 1000;
       if (!useTextures) {
@@ -1365,6 +1399,7 @@ function updateGame() {
     }
     currentAttackFinished = false; // Bloquear hasta terminar
     if (attackType === 0) {
+      shakeIntensity = 5;
       shakeTimeout = Date.now() + 1000; // Sacudida de 1 segundo
       spawnBossAttack();
     } else if (attackType === 1) {
@@ -1409,6 +1444,7 @@ for (let i = bossAttacks.length - 1; i >= 0; i--) {
         bossAttacks.splice(i, 1); // Eliminar ataque fijo después de daño
       }
       if (lives < prevLives && !flashTimeout) {
+        playSound('damage');
         flashTimeout = Date.now() + 1000;
         flashColor = "red";
         playerTempImage = "jaure_enojado"; // Usar jaure_enojado como triste cuando pierde vida
@@ -1433,15 +1469,18 @@ for (let i = bossAttacks.length - 1; i >= 0; i--) {
       flashColor = "brown";
       gameState = "dead";
       playMusic(true);
+      playSound('death');
       deathTimeout = Date.now() + 2000;
     } else {
       lives = Math.max(0, lives - en.livesLost);
       if (lives <= 0) {
         gameState = "dead";
         playerTempImage = "jaure_muerto";
+        playSound('death');
         deathTimeout = Date.now() + 2000;
       }
       if (!flashTimeout) {
+        playSound('damage');
         flashTimeout = Date.now() + 1000;
         flashColor = "red";
         playerTempImage = "jaure_enojado"; // Usar jaure_enojado como triste cuando pierde vida
@@ -1454,6 +1493,7 @@ for (let i = bossAttacks.length - 1; i >= 0; i--) {
     }
   });
   if (lives < prevLives && !flashTimeout) {
+    playSound('damage');
     flashTimeout = Date.now() + 1000;
     flashColor = "red";
     playerTempImage = "jaure_enojado"; // Usar jaure_enojado como triste cuando pierde vida
@@ -1546,6 +1586,8 @@ for (let i = bossAttacks.length - 1; i >= 0; i--) {
       if (g.x < en.x + enWidth && g.x + g.w > en.x && g.y < en.y + enHeight && g.y + g.h > en.y) {
         grenadesToRemove.add(gi);
         hit = true;
+        shakeIntensity = 5;
+        shakeTimeout = Date.now() + 1000;
         const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
         if (en.type === "boss") {
           en.hp -= 10; // Daño especial al boss
@@ -1575,7 +1617,7 @@ for (let i = bossAttacks.length - 1; i >= 0; i--) {
         grenades += 3;
       } else {
         machinegunActive = true;
-        machinegunEndTime = Date.now() + 15000;
+        machinegunEndTime = Date.now() + 10000;
       }
       currentObjective = null;
       objectiveTimer = Date.now() + 60000;
@@ -1593,6 +1635,7 @@ for (let i = bossAttacks.length - 1; i >= 0; i--) {
   if (lives <= 0) {
     gameState = "dead";
     playerTempImage = "jaure_muerto";
+    playSound('death');
     deathTimeout = Date.now() + 2000;
     powerUpBtn.style.display = "none";
     playMusic(true);
@@ -1687,7 +1730,7 @@ function drawGame() {
   }
   // Imagen de metralleta al lado del jugador si activa
   if (machinegunActive && useTextures && images.metralleta.complete) {
-    ctx.drawImage(images.metralleta, player.x + (useTextures ? player.w : playerCube.w), player.y, 40, 40);
+    ctx.drawImage(images.metralleta, player.x + (useTextures ? player.w : playerCube.w), player.y, 40, 60);
   }
   // Barra de sprint (amarilla)
   const barWidth = (useTextures ? player.w : playerCube.w) * sprintCharge;
@@ -1724,7 +1767,7 @@ function drawGame() {
       ctx.strokeStyle = "yellow";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(g.x + g.w / 2, g.y + g.h / 2, 50, 0, 2 * Math.PI);
+      ctx.arc(g.x + g.w / 2, g.y + g.h / 2, 100, 0, 2 * Math.PI);
       ctx.stroke();
     }
   });
@@ -1803,7 +1846,7 @@ function drawGame() {
   }
   // Mensaje de objetivo
   if (!bossActive && currentObjective) {
-    ctx.fillStyle = "violet";
+    ctx.fillStyle = "yellow";
     ctx.font = "16px Arial";
     ctx.textAlign = "center";
     ctx.fillText(`Derrota a ${objectiveKills} / ${currentObjective.amount} de ${currentObjective.name} por ${currentObjective.reward === "grenade" ? "3 granadas" : "una metralleta"}`, canvas.width / 2, 20);
@@ -1812,24 +1855,20 @@ function drawGame() {
   // HUD
   ctx.fillStyle = "white";
   ctx.font = "16px Arial";
-  ctx.fillText("Kills: " + kills, 10, 20);
-  ctx.fillText("Points: " + points, 10, 40);
-  if (points >= 150 || cheat912) { // Mostrar corazones si cheat912 está activo
-    const heartSize = 24;
-    ctx.font = `${heartSize}px Arial`;
-    for (let i = 0; i < maxLives; i++) {
-      ctx.fillText(i < lives ? "❤️" : "🖤", 10 + i * (heartSize + 5), 60);
-    }
-  } else {
-    ctx.font = "16px Arial";
-    ctx.fillText("Lives: " + lives, 10, 60);
-    ctx.fillText("Ammo: " + ammo, 10, 80);
-    ctx.fillText("Grenades: " + grenades, 10, 100);
-    ctx.fillText(levelNames[difficulty], 10, 120);
+  const heartSize = 24;
+  ctx.font = `${heartSize}px Arial`;
+  for (let i = 0; i < maxLives; i++) {
+    ctx.fillText(i < lives ? "❤️" : "🖤", 2 + i * (heartSize + 5), 50);
   }
-  ctx.textAlign = "right";
-  ctx.fillText(`FPS: ${fps}`, canvas.width - 10, 20);
-  ctx.textAlign = "left";
+    ctx.font = "16px Arial";
+    ctx.fillText("Points: " + points, 10, 70);
+    ctx.fillText("Ammo: " + ammo, 10, 90);
+    ctx.fillText("Kills: " + kills, 10, 110);
+    ctx.fillText("Grenades: " + grenades, 10, 130);
+    ctx.fillText(levelNames[difficulty], 10, 150);
+    ctx.textAlign = "right";
+    ctx.fillText(`FPS: ${fps}`, canvas.width - 10, 40);
+    ctx.textAlign = "left";
   // Contador para metralleta
   if (machinegunActive) {
     const remaining = Math.ceil((machinegunEndTime - Date.now()) / 1000);

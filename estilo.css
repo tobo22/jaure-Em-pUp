@@ -86,7 +86,7 @@ body {
   transition: all 0.3s ease;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
   position: absolute;
-  top: 110%;
+  top: 100%;
   font-family: "BBH Sans Bartle", sans-serif;
   font-weight: 200;
   font-style: normal;
@@ -382,7 +382,7 @@ footer p {
 /* Menús */
 .menu {
   position: absolute;
-  top: 200%;
+  top: 150%;
   left: 50%;
   transform: translate(-50%, -50%);
   background: rgba(0,0,0,0.85);
