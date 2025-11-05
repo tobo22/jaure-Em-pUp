@@ -68,6 +68,7 @@ let sprintSpeedMultiplier = 2; // Multiplicador de velocidad durante sprint
 let currentAttackFinished = true; // ¿Terminó el ataque actual?
 let grenades = 0;
 let grenadeProjectiles = [];
+let explosions = [];
 let machinegunActive = false;
 let machinegunEndTime = null;
 let currentObjective = null;
@@ -118,7 +119,8 @@ const images = {
   unmute: new Image(),
   pause: new Image(),
   metralleta: new Image(),
-  machinegunBullet: new Image()
+  machinegunBullet: new Image(),
+  explosion: new Image()
 };
 images.background_easy.src = 'easy.png';
 images.background_medium.src = 'inter.png';
@@ -151,6 +153,7 @@ images.unmute.src = 'unmute.png';
 images.pause.src = 'pause.png';
 images.metralleta.src = 'metralleta.png';
 images.machinegunBullet.src = 'balas.png';
+images.explosion.src = 'explosion.png';
 // Precarga de sonidos
 const sounds = {
   menu_song: new Audio(),
@@ -549,7 +552,7 @@ document.getElementById("startBtn").onclick = () => {
   cheat22 = isCheat22Active;
   if (cheat912) {
     console.log("Aplicando cheat 912: points = 150, iniciando transición al jefe");
-    points = 150;
+    points = 200;
     startBossTransition();
   } else if (cheat22) {
     console.log("Aplicando cheat 22: points = 22, iniciando juego normal");
@@ -832,6 +835,7 @@ function resetGame() {
   currentAttackFinished = true;
   grenades = 0;
   grenadeProjectiles = [];
+  explosions = [];
   machinegunActive = false;
   machinegunEndTime = null;
   currentObjective = null;
@@ -854,7 +858,7 @@ function resetToBoss() {
   kills = 0;
   lives = difficulty === "easy" ? 5 : 3; // 5 vidas en fácil, 3 en medio/difícil
   maxLives = difficulty === "easy" ? 5 : 3;
-  points = 150;
+  points = 200;
   ammo = Infinity; // Munición infinita
   activePower = null;
   powerTimeout = null;
@@ -886,6 +890,7 @@ function resetToBoss() {
   currentAttackFinished = true;
   grenades = 0;
   grenadeProjectiles = [];
+  explosions = [];
   machinegunActive = false;
   machinegunEndTime = null;
   currentObjective = null;
@@ -1178,32 +1183,92 @@ function startBossTransition() {
 function playEndVideo() {
   if (isVideoPlaying) return;
   isVideoPlaying = true;
-  // Crear elemento de video
+
+  // 🔹 Subir hasta arriba de la página
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  // 🔹 Crear el elemento de video
   videoElement = document.createElement("video");
   videoElement.id = "endVideo";
   videoElement.src = "end.mp4";
-  videoElement.style.position = "absolute";
-  videoElement.style.top = "0";
-  videoElement.style.left = "0";
-  videoElement.style.width = "100vw";
-  videoElement.style.height = "100vh";
-  videoElement.style.objectFit = "cover"; // Asegurar que cubra toda la pantalla
-  videoElement.style.zIndex = "1000"; // Mostrar sobre el canvas
+  videoElement.autoplay = true;
+  videoElement.controls = false;
+  videoElement.playsInline = true;
+  videoElement.muted = false;
+
+  // 🔹 Estilo: video en pantalla completa por encima de todo
+  Object.assign(videoElement.style, {
+    position: "fixed",
+    top: "0",
+    left: "0",
+    width: "100vw",
+    height: "100vh",
+    objectFit: "cover",
+    zIndex: "99999",
+    opacity: "0",
+    transition: "opacity 1s ease-in-out",
+  });
+
   document.body.appendChild(videoElement);
-  // Reproducir video
-  videoElement.play().catch(e => console.error("Error reproduciendo end.mp4:", e));
-  // Cuando termine el video, volver al menú principal
-  videoElement.onended = () => {
-    videoElement.remove(); // Eliminar el elemento de video
+
+  // 🔹 Crear botón "Omitir"
+  const skipButton = document.createElement("button");
+  skipButton.textContent = "Omitir ▶";
+  skipButton.id = "skipFinalButton";
+
+  Object.assign(skipButton.style, {
+    position: "fixed",
+    top: "20px",
+    right: "30px",
+    padding: "10px 20px",
+    background: "rgba(0, 0, 0, 0.6)",
+    color: "gold",
+    border: "2px solid gold",
+    borderRadius: "10px",
+    fontFamily: "Arial, sans-serif",
+    fontSize: "1rem",
+    cursor: "pointer",
+    zIndex: "100000",
+    transition: "all 0.3s ease",
+  });
+
+  // 🔹 Efecto hover
+  skipButton.addEventListener("mouseenter", () => {
+    skipButton.style.background = "gold";
+    skipButton.style.color = "black";
+  });
+  skipButton.addEventListener("mouseleave", () => {
+    skipButton.style.background = "rgba(0, 0, 0, 0.6)";
+    skipButton.style.color = "gold";
+  });
+
+  document.body.appendChild(skipButton);
+
+  // 🔹 Mostrar video con fade-in
+  setTimeout(() => {
+    videoElement.style.opacity = "1";
+  }, 100);
+
+  // 🔹 Al terminar el video, o al hacer clic en "Omitir"
+  const endSequence = () => {
+    videoElement.remove();
+    skipButton.remove();
     videoElement = null;
     isVideoPlaying = false;
     videoFadeOpacity = 0;
     videoFadeStartTime = null;
     gameState = "menu";
     menu.style.display = "block";
-    playMusic(true); // Reproducir música del menú
+    playMusic(true);
   };
+
+  // Cuando termina el video
+  videoElement.onended = endSequence;
+
+  // Cuando se hace clic en el botón
+  skipButton.addEventListener("click", endSequence);
 }
+
 function handlePowerUps() {
   if (bossActive) return; // No manejar power-ups durante el jefe
   powerUps.forEach((p, i) => {
@@ -1354,7 +1419,7 @@ function updateGame() {
     }
   }
   // Activar modo jefe a los 150 points
-  if (points >= 150 && !bossActive && !cheat912) { // Evitar transición si cheat912 está activo
+  if (points >= 200 && !bossActive && !cheat912) { // Evitar transición si cheat912 está activo
     startBossTransition();
   }
   // Manejo de metralleta temporal
@@ -1580,50 +1645,64 @@ for (let i = bossAttacks.length - 1; i >= 0; i--) {
   let grenadesToRemove = new Set();
   grenadeProjectiles.forEach((g, gi) => {
     let hit = false;
+    const g_cx = g.x + g.w / 2;
+    const g_cy = g.y + g.h / 2;
     enemies.forEach((en, ei) => {
-      const enWidth = useTextures ? en.w : enemyCube.w;
-      const enHeight = useTextures ? en.h : enemyCube.h;
-      if (g.x < en.x + enWidth && g.x + g.w > en.x && g.y < en.y + enHeight && g.y + g.h > en.y) {
-        grenadesToRemove.add(gi);
+      const en_w = useTextures ? en.w : enemyCube.w;
+      const en_h = useTextures ? en.h : enemyCube.h;
+      const en_cx = en.x + en_w / 2;
+      const en_cy = en.y + en_h / 2;
+      const dist = Math.hypot(g_cx - en_cx, g_cy - en_cy);
+      if (dist < 100) {
         hit = true;
-        shakeIntensity = 5;
-        shakeTimeout = Date.now() + 1000;
-        const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
-        if (en.type === "boss") {
-          en.hp -= 10; // Daño especial al boss
-        } else {
-          let toRemove = [ei];
-          enemies.forEach((e, idx) => {
-            if (idx !== ei && Math.hypot(e.x - en.x, e.y - en.y) < 50 && toRemove.length < 3) {
-              toRemove.push(idx);
-            }
-          });
-          toRemove.sort((a, b) => b - a);
-          toRemove.forEach(idx => {
-            let killedEn = enemies[idx];
-            if (currentObjective && killedEn.type === currentObjective.enemy) {
-              objectiveKills++;
-            }
-            kills++;
-            points += killedEn.pointsGained;
-            ammo = ammo === Infinity ? Infinity : Math.min(ammo + killedEn.ammoReward, maxAmmo);
-            enemies.splice(idx, 1);
-          });
-        }
       }
     });
-    if (hit && currentObjective && objectiveKills >= currentObjective.amount) {
-      if (currentObjective.reward === "grenade") {
-        grenades += 3;
-      } else {
-        machinegunActive = true;
-        machinegunEndTime = Date.now() + 10000;
-      }
-      currentObjective = null;
-      objectiveTimer = Date.now() + 60000;
+    if (hit) {
+      grenadesToRemove.add(gi);
+      shakeIntensity = 5;
+      shakeTimeout = Date.now() + 1000;
+      explosions.push({ cx: g_cx, cy: g_cy, start: Date.now() });
+      const maxAmmo = difficulty === "medium" ? 20 : (difficulty === "hard" ? 15 : 30);
+      let toKill = [];
+      enemies.forEach((e, idx) => {
+        const e_w = useTextures ? e.w : enemyCube.w;
+        const e_h = useTextures ? e.h : enemyCube.h;
+        const e_cx = e.x + e_w / 2;
+        const e_cy = e.y + e_h / 2;
+        const dist = Math.hypot(g_cx - e_cx, g_cy - e_cy);
+        if (dist < 100) {
+          if (e.type === "boss") {
+            e.hp -= 10; // Daño especial al boss
+          } else {
+            toKill.push(idx);
+          }
+        }
+      });
+      toKill.sort((a, b) => b - a);
+      toKill.forEach(idx => {
+        let killedEn = enemies[idx];
+        if (currentObjective && killedEn.type === currentObjective.enemy) {
+          objectiveKills++;
+        }
+        kills++;
+        points += killedEn.pointsGained;
+        ammo = ammo === Infinity ? Infinity : Math.min(ammo + killedEn.ammoReward, maxAmmo);
+        enemies.splice(idx, 1);
+      });
     }
   });
   grenadeProjectiles = grenadeProjectiles.filter((_, gi) => !grenadesToRemove.has(gi));
+  explosions = explosions.filter(e => Date.now() - e.start < 1000);
+  if (currentObjective && objectiveKills >= currentObjective.amount) {
+    if (currentObjective.reward === "grenade") {
+      grenades += 3;
+    } else {
+      machinegunActive = true;
+      machinegunEndTime = Date.now() + 15000;
+    }
+    currentObjective = null;
+    objectiveTimer = Date.now() + 60000;
+  }
   handlePowerUps();
   if (colorChangeTimeout && Date.now() > colorChangeTimeout) {
     playerTempImage = null;
@@ -1769,6 +1848,17 @@ function drawGame() {
       ctx.beginPath();
       ctx.arc(g.x + g.w / 2, g.y + g.h / 2, 100, 0, 2 * Math.PI);
       ctx.stroke();
+    }
+  });
+  // Explosiones
+  explosions.forEach(exp => {
+    if (useTextures && images.explosion.complete) {
+      ctx.drawImage(images.explosion, exp.cx - 100, exp.cy - 100, 200, 200);
+    } else {
+      ctx.beginPath();
+      ctx.arc(exp.cx, exp.cy, 100, 0, 2 * Math.PI);
+      ctx.fillStyle = "orange";
+      ctx.fill();
     }
   });
   // Enemigos
